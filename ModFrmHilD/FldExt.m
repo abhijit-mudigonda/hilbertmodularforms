@@ -10,7 +10,8 @@ declare attributes FldAlg:
   Extensions,
   Restrictions,
   UnitCharFieldsByWeight,
-  MinDistBtwnRoots
+  MinDistBtwnRoots,
+  IsGalois
   ;
 
 
@@ -804,10 +805,13 @@ intrinsic IsGalois(F::FldAlg) -> BoolElt
   {
     IsNormal fails if the defining polynomial of F has non-integral coefficients.
   }
-  coeffs := DefiningPolyCoeffs(F);
-  if &and[IsIntegral(a) : a in coeffs] and coeffs[#coeffs] eq 1 then
-    return IsNormal(F);
-  else
-    return #GaloisGroup(F) eq Degree(F);
+  if not assigned F`IsGalois then
+    coeffs := DefiningPolyCoeffs(F);
+    if &and[IsIntegral(a) : a in coeffs] and coeffs[#coeffs] eq 1 then
+      F`IsGalois := IsNormal(F);
+    else
+      F`IsGalois := #GaloisGroup(F) eq Degree(F);
+    end if;
   end if;
+  return F`IsGalois;
 end intrinsic;
