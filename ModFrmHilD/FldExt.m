@@ -8,7 +8,6 @@ declare attributes FldAlg:
   ClassGroupReps,
   MarkedEmbedding,
   Extensions,
-  Restrictions,
   UnitCharFieldsByWeight,
   MinDistBtwnRoots,
   IsGalois
@@ -252,7 +251,7 @@ intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
     w(L!(aut(K_prim))) = v(K_prim).
 
     Equivalently, we choose an inclusion of K into L which commutes with evaluation
-    under the distinguished places.
+    under the distinguished places. 
     
     If K contains L, then we choose a primitive element L_prim of L and
     find an automorphism aut of K such that
@@ -267,17 +266,17 @@ intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
 
   // If x is rational then all embeddings are the same,
   // We do this case separately because Rationals() 
-  // does not have an Extensions attribute.
+  // is not a FldAlg
   if x in Rationals() then
     return L!x;
   end if;
-
-  K := Parent(x);
 
   // If L = QQ then all restrictions are the same.
   if L eq Rationals() then
     return Rationals()!x;
   end if;
+
+  K := Parent(x);
 
   // We trust Magma's coercion if K and L have the same
   // defining polynomial
@@ -289,64 +288,57 @@ intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
   if not assigned K`Extensions then
     K`Extensions := AssociativeArray();
   end if;
-  if not assigned K`Restrictions then
-    K`Restrictions := AssociativeArray();
+
+  if not assigned L`Extensions then
+    L`Extensions := AssociativeArray();
   end if;
 
   require IsGalois(K) : "Strong coercion is not yet implemented\
       for non-Galois initial fields";
 
-  // if K = QQ then all embeddings are the same
-  if K eq Rationals() then
-    K`Extensions[DefiningPolyCoeffs(L)] := Automorphisms(Rationals())[1];
-  end if;
-
-  // if L = QQ then all restrictions are the same
-  if L eq Rationals() then
-    K`Restrictions[DefiningPolyCoeffs(L)] := Automorphisms(K)[1];
-  end if;
-
   if IsDefined(K`Extensions, DefiningPolyCoeffs(L)) then
     phi := K`Extensions[DefiningPolyCoeffs(L)];
-    return L!phi(x);
-  elif IsDefined(K`Restrictions, DefiningPolyCoeffs(L)) then
-    phi := K`Restrictions[DefiningPolyCoeffs(L)];
-    return L!phi(x);
+    b := x @ phi;
+    // This chooses an isomorphism between the parent of x @ phi
+    // and L. Since they have the same defining polynomial, we 
+    // trust that the embedding chosen is the "safe" one. 
+    assert IsIsomorphic(L, Parent(b));
+    return L!b;
+  elif IsDefined(L`Extensions, DefiningPolyCoeffs(K)) then
+    phi := L`Extensions[DefiningPolyCoeffs(K)];
+    b := x @@ phi;
+    assert IsIsomorphic(L, Parent(b));
+    return L!b;
   end if;
 
-  v := MarkedEmbedding(K);
-  w := MarkedEmbedding(L);
-
-  if IsSubfield(K, L) then
-    a := PrimitiveElement(K);
-    a_eval := ComplexField()!Evaluate(a, v);
-    auts := Automorphisms(K);
-    for aut in auts do
-      if Abs(ComplexField()!Evaluate(L!aut(a), w) - a_eval) lt 0.5 * MinDistBtwnRoots(K) then
-        K`Extensions[DefiningPolyCoeffs(L)] := aut;
-        return StrongCoerce(L, x);
-      end if;
-    end for;
-    require 0 eq 1 : "This should not be possible. Something has gone wrong.";
-  elif IsSubfield(L, K) then
-    auts := Automorphisms(K);
-    a := K!PrimitiveElement(L);
-    a_eval := ComplexField()!Evaluate(a, v);
-    for aut in auts do
-      // TODO abhijitm - This currently fails to coerce an element of a cyclotomic
-      // field extended from a number field back into that number field 
-      // For exmaple, if x is in K and L is a cyclotomic field containing K, then
-      // L!x will succeed but K!(L!x) will fail. This case is not important right
-      // now so I'm leaving it to future me (or present you!) to fix it. 
-      if Abs(ComplexField()!Evaluate(L!aut(a), w) - a_eval) lt 0.5 * MinDistBtwnRoots(K) then
-        K`Restrictions[DefiningPolyCoeffs(L)] := aut;
-        return StrongCoerce(L, x);
-      end if;
-    end for;
-    require 0 eq 1 : "This should not be possible. Something has gone wrong.";
+  b, phi := IsSubfield(K, L);
+  if b then
+    subfld := K;
+    supfld := L;
   else
-    require 0 eq 1 : "The parent of x neither contains nor is contained in L", K, L;
+    c, phi := IsSubfield(L, K);
+    if c then
+      subfld := L;
+      supfld := K;
+    else
+      require 0 eq 1 : "The parent of x neither contains nor is contained in L", K, L;
+    end if;
   end if;
+
+  v := MarkedEmbedding(subfld);
+  w := MarkedEmbedding(supfld);
+
+  a := PrimitiveElement(subfld);
+  a_eval := ComplexField()!Evaluate(a, v);
+  auts := Automorphisms(subfld);
+  for aut in auts do
+    psi := aut * phi;
+    if Abs(ComplexField()!Evaluate(a @ psi, w) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
+      subfld`Extensions[DefiningPolyCoeffs(supfld)] := psi;
+      return StrongCoerce(L, x);
+    end if;
+  end for;
+  require 0 eq 1 : "This should not be possible. Something has gone wrong.";
 end intrinsic;
 
 intrinsic ListToStrongCoercedSeq(A::List) -> SeqEnum
