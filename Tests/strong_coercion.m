@@ -1,20 +1,21 @@
 CC_THRESHOLD := 10^-10;
 
-procedure test(a, K1, K2)
+procedure test(a, K1, K2 : v1:=DefaultMarkedEmbedding(K1), v2:=DefaultMarkedEmbedding(K2))
   // a::FldElt - Element of K1
   // K1::Fld  
   // K2::Fld 
+  // v1::EmbedNumElt
+  // v2::EmbedNumElt
   assert a in K1;
-  b := StrongCoerce(K2, a); 
-
-  a_eval := (K1 ne Rationals()) select (a @ DefaultMarkedEmbedding(K1)) else a;
-  b_eval := (K2 ne Rationals()) select (b @ DefaultMarkedEmbedding(K2)) else b;
-  assert Abs(a_eval - b_eval) lt CC_THRESHOLD;
-
-  c := StrongCoerce(K1, b);
-  assert c eq a;
+  able, b := IsStrongCoercible(K2, a : v:=v1, w:=v2); 
+  if able then
+    a_eval := (K1 ne Rationals()) select v1(a) else a;
+    b_eval := (K2 ne Rationals()) select v2(b) else b;
+    assert Abs(a_eval - b_eval) lt CC_THRESHOLD;
+    c := StrongCoerce(K1, b : v:=v2, w:=v1);
+    assert c eq a;
+  end if;
 end procedure;
-
 
 Q := RationalField();
 F := QuadraticField(5);
@@ -60,3 +61,35 @@ assert Abs((c @ w) - (a @ v_K) * (b @ v_L)) lt CC_THRESHOLD;
 
 B := ListToStrongCoercedSeq([* 1, 2/3, K.1, L.1 *]);
 assert IsIsomorphic(Parent(B[1]), Compositum(K, L));
+
+// non-Galois <-> Galois
+R<x> := PolynomialRing(Rationals());
+K := NumberField(x^3-2);
+L := SplittingField(K);
+vs := EmbeddingsCC(K);
+w := DefaultMarkedEmbedding(L);
+for v in vs do
+  test(K.1 - 3, K, L : v1:=v, v2:=w);
+end for;
+
+// Galois <-> non-Galois
+F := QuadraticField(5);
+R<x> := PolynomialRing(F);
+K_rel := ext<F | x^2 + 1/22*(3*F.1 + 23)>;
+K := AbsoluteField(K_rel);
+test(F.1, F, K : v2:=EmbeddingsCC(K)[2]);
+
+// non-Galois <-> non-Galois
+R<x> := PolynomialRing(Rationals());
+K := NumberField(x^3-2);
+S<y> := PolynomialRing(K);
+L_rel := ext<K | y^3 - (3+K.1-K.1^2)>;
+L := AbsoluteField(L_rel);
+assert not IsGalois(L);
+
+for v in EmbeddingsCC(K) do
+  for w in EmbeddingsCC(L) do
+    test(K.1, K, L : v1:=v, v2:=w);
+    assert IsStrongCoercible(L, K.1 : v:=v, w:=w) eq Extends(w, v); 
+  end for;
+end for;

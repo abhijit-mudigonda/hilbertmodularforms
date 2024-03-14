@@ -11,6 +11,7 @@ declare attributes FldAlg:
   UnitCharFieldsByWeight,
   MinDistBtwnRoots,
   Embeddings,
+  EmbedLabels,
   IsGalois
   ;
 
@@ -241,11 +242,32 @@ intrinsic StrongCoerce(
   return y;
 end intrinsic;
 
+intrinsic EmbedLabel(v::EmbedNumElt) -> FldComElt 
+  {
+    Given a number field K and a place v, returns a Gaussian integer 
+    key specifying the place by specifying the evaluation of the 
+    primitive element under v
+  }
+  K := NumberField(v);
+  if not assigned K`EmbedLabels then
+    K`EmbedLabels := AssociativeArray();
+  end if;
+
+  if not IsDefined(K`EmbedLabels, v) then
+    a := PrimitiveElement(K);
+    a_eval := ComplexField()!v(a);
+    N := -Floor(Log(MinDistBtwnRoots(K)));
+    K`EmbedLabels[v] := Round(10^N * a_eval);
+  end if;
+
+  return K`EmbedLabels[v];
+  end intrinsic;
+
 intrinsic IsStrongCoercible(
     L::Fld,
     x::. : 
-    v:=DefaultMarkedEmbedding(Parent(x)),
-    w:=DefaultMarkedEmbedding(L)
+    v:=false,
+    w:=false
     ) -> BoolElt, FldElt
   {
     input:
@@ -273,13 +295,20 @@ intrinsic IsStrongCoercible(
     If K contains L, then we do the same, but instead 
     return the preimage of x under phi.
   }
+  if Type(x) in [FldOrdElt, RngIntElt, RngQuadElt, RngCycElt] then
+    x := FieldOfFractions(Parent(x))!x;
+  end if;
+  if not Type(x) in [FldNumElt, FldRatElt, FldQuadElt, FldCycElt] then
+    return false;
+  end if;
 
-  require Type(x) in [FldNumElt, FldRatElt, FldQuadElt, FldCycElt] : "%o is not a valid type for strong coercion", Type(x);
+  K := Parent(x);
+  if v cmpeq false then
+    v := DefaultMarkedEmbedding(K);
+  end if;
 
-  // strong coercion is possible if and only if
-  // regular coercion is possible
-  if not IsCoercible(L, x) then
-    return false, _;
+  if w cmpeq false then
+    w := DefaultMarkedEmbedding(L);
   end if;
 
   // If x is rational then all embeddings are the same,
@@ -294,7 +323,6 @@ intrinsic IsStrongCoercible(
     return true, Rationals()!x;
   end if;
 
-  K := Parent(x);
 
   // We trust Magma's coercion if K and L have the same
   // defining polynomial
@@ -305,27 +333,24 @@ intrinsic IsStrongCoercible(
 
   if not assigned K`Extensions then
     K`Extensions := AssociativeArray();
-    K`Extensions[v] := AssociativeArray();
   end if;
 
   if not assigned L`Extensions then
     L`Extensions := AssociativeArray();
-    L`Extensions[w] := AssociativeArray();
   end if;
 
-  require IsGalois(K) : "Strong coercion is not yet implemented\
-      for non-Galois initial fields";
-
-  if IsDefined(K`Extensions[v], DefiningPolyCoeffs(L)) then
-    phi := K`Extensions[v][DefiningPolyCoeffs(L)];
+  v_label := EmbedLabel(v);
+  w_label := EmbedLabel(w);
+  if IsDefined(K`Extensions, <v_label, DefiningPolyCoeffs(L), w_label>) then
+    phi := K`Extensions[<v_label, DefiningPolyCoeffs(L), w_label>];
     b := x @ phi;
     // This chooses an isomorphism between the parent of x @ phi
     // and L. Since they have the same defining polynomial, we 
     // trust that the embedding chosen is the "safe" one. 
     assert IsIsomorphic(L, Parent(b));
     return true, L!b;
-  elif IsDefined(L`Extensions[w], DefiningPolyCoeffs(K)) then
-    phi := L`Extensions[w][DefiningPolyCoeffs(K)];
+  elif IsDefined(L`Extensions, <w_label, DefiningPolyCoeffs(K), v_label>) then
+    phi := L`Extensions[<w_label, DefiningPolyCoeffs(K), v_label>];
     b := x @@ phi;
     assert IsIsomorphic(L, Parent(b));
     return true, L!b;
@@ -335,30 +360,53 @@ intrinsic IsStrongCoercible(
   if b then
     subfld := K;
     supfld := L;
+    v_sub := v;
+    v_sup := w;
+    v_sub_label := v_label;
+    v_sup_label := w_label;
   else
     c, phi := IsSubfield(L, K);
     if c then
       subfld := L;
       supfld := K;
+      v_sub := w;
+      v_sup := v;
+      v_sub_label := w_label;
+      v_sup_label := v_label;
     else
       require 0 eq 1 : "The parent of x neither contains nor is contained in L", K, L;
     end if;
   end if;
-
-  v_sub := DefaultMarkedEmbedding(subfld);
-  v_sup := DefaultMarkedEmbedding(supfld);
-
   a := PrimitiveElement(subfld);
-  a_eval := ComplexField()!(v_sub(a));
-  auts := Automorphisms(subfld);
-  for aut in auts do
-    psi := aut * phi;
-    if Abs(ComplexField()!(v_sup(a @ psi)) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
-      subfld`Extensions[v_sub][DefiningPolyCoeffs(supfld)] := psi;
-      return true, StrongCoerce(L, x);
-    end if;
-  end for;
-  require 0 eq 1 : "This should not be possible. Something has gone wrong.";
+  a_eval := ComplexField()!v_sub(a);
+  sub_auts := Automorphisms(subfld);
+
+  test_map := func<psi | Abs(ComplexField()!v_sup(a @ psi) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld)>;
+
+  if IsGalois(K) then
+    for aut in sub_auts do
+      psi := aut * phi;
+      if test_map(psi) then
+        subfld`Extensions[<v_sub_label, DefiningPolyCoeffs(supfld), v_sup_label>] := psi;
+        return IsStrongCoercible(L, x : v:=v, w:=w);
+      end if;
+    end for;
+    require 0 eq 1 : "Something's gone wrong, one of the sub_auts should've worked.";
+  else
+    sup_auts := Automorphisms(supfld);
+    // TODO abhijitm may be able to optimize this a little bit by
+    // skipping automorphisms of K which actually extend to L 
+    for sub_aut in sub_auts do
+      for sup_aut in sup_auts do
+        psi := sub_aut * phi * sup_aut;
+        if test_map(psi) then
+          subfld`Extensions[<v_sub_label, DefiningPolyCoeffs(supfld), v_sup_label>] := psi;
+          return IsStrongCoercible(L, x : v:=v, w:=w);
+        end if;
+      end for;
+    end for;
+    return false, _;
+  end if;
 end intrinsic;
 
 intrinsic ListToStrongCoercedSeq(A::List) -> SeqEnum
