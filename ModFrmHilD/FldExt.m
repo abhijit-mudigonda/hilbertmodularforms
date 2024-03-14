@@ -201,29 +201,24 @@ intrinsic DefaultMarkedEmbedding(K::Fld) -> PlcNumElt
   return K`DefaultMarkedEmbedding;
 end intrinsic;
 
-intrinsic IsStrongCoercible(
+intrinsic StrongCoerce(
     L::Fld,
-    x::. : 
-    v:=DefaultMarkedEmbedding(Parent(x)),
+    x::FldElt : 
+    v:=DefaultMarkedEmbedding(FieldOfFractions(Parent(x))),
     w:=DefaultMarkedEmbedding(L)
-    ) -> BoolElt, FldElt
+    ) -> FldElt
   {
-    input:
+    input: 
       L - FldNum, FldQuad, FldCyc, or FldRat
-      x - Any, but can return true only on a FldElt or RngElt
+      x - An element of one of the above
+      v - An embedding of the parent of x
+      w - An embedding of L
     returns:
-      false if x cannot be coerced into L. 
-      true if x can be coerced into L, along with
-        the strong coercion of x into L.
+      The strong coercion of x into L.
   }
-
-  // strong coercion is possible if and only if
-  // regular coercion is possible
-  if IsCoercible(L, x) then
-  return true, StrongCoerce(L, x : v, w);
-  else
-    return false, _;
-  end if;
+  b, y := IsStrongCoercible(L, x : v:=v, w:=w);
+  require b : "x is not coercible into L.";
+  return y;
 end intrinsic;
 
 intrinsic StrongCoerce(
@@ -240,59 +235,63 @@ intrinsic StrongCoerce(
     returns:
       StrongCoerce applied to x coerced into its field of fractions.
   }
-
   K := FieldOfFractions(Parent(x));
-  return StrongCoerce(L, K!x : v, w);
+  b, y := IsStrongCoercible(L, K!x : v:=v, w:=w);
+  require b : "x is not coercible into L.";
+  return y;
 end intrinsic;
 
-intrinsic StrongCoerce(
+intrinsic IsStrongCoercible(
     L::Fld,
-    x::FldElt :
+    x::. : 
     v:=DefaultMarkedEmbedding(Parent(x)),
     w:=DefaultMarkedEmbedding(L)
-    ) -> FldElt
+    ) -> BoolElt, FldElt
   {
-    input: 
+    input:
       L - FldNum, FldQuad, FldCyc, or FldRat
-      x - An element of one of the above 
+      x - Any, but can return true only on a FldElt or RngElt
     returns:
-      Returns x as an element of L, such that evaluation at 
-      the distinguished place of the Parent of x is equal to
-      evaluation of StrongCoerce(L, x) at the distinguished place
-      of L.
+      false if x cannot be coerced into L. 
+      true if x can be coerced into L, along with
+        the strong coercion of x into L.
+
+      The strong coercion of x in L is the element of L such that its evaluation
+      at the distinguished place of L is the same as the
+      evaluation at the distinguished place of the Parent of x.
 
     Write K for the parent number field of x. There are two cases.
 
     If K is a subfield of L and K_prim is a primitive
-    element of K, we fix an inclusion iota of K into L and find an automorphism
-    aut of K such that 
+    element of K, we fix an inclusion iota of K into L and find an embedding
+    phi of K into L such that
 
-    w(L!(aut(K_prim))) = v(K_prim).
+    w(phi(K_prim)) = v(K_prim).
 
-    Equivalently, we choose an inclusion of K into L which commutes with evaluation
-    under the distinguished places. 
-    
-    If K contains L, then we choose a primitive element L_prim of L and
-    find an automorphism aut of K such that
+    We then return phi(x).
 
-    w(L!aut(K!L_prim)) = v(K!L_prim),
-
-    Equivalently, we choose an automorphism of K so that restriction to L commutes 
-    with evaluation under the distinguished places.
+    If K contains L, then we do the same, but instead 
+    return the preimage of x under phi.
   }
 
   require Type(x) in [FldNumElt, FldRatElt, FldQuadElt, FldCycElt] : "%o is not a valid type for strong coercion", Type(x);
+
+  // strong coercion is possible if and only if
+  // regular coercion is possible
+  if not IsCoercible(L, x) then
+    return false, _;
+  end if;
 
   // If x is rational then all embeddings are the same,
   // We do this case separately because Rationals() 
   // is not a FldAlg
   if x in Rationals() then
-    return L!x;
+    return true, L!x;
   end if;
 
   // If L = QQ then all restrictions are the same.
   if L eq Rationals() then
-    return Rationals()!x;
+    return true, Rationals()!x;
   end if;
 
   K := Parent(x);
@@ -301,7 +300,7 @@ intrinsic StrongCoerce(
   // defining polynomial
   if DefiningPolyCoeffs(K) eq DefiningPolyCoeffs(L) then
     require IsIsomorphic(K, L) : "This should never happen, something is quite wrong";
-    return L!x;
+    return true, L!x;
   end if;
 
   if not assigned K`Extensions then
@@ -324,12 +323,12 @@ intrinsic StrongCoerce(
     // and L. Since they have the same defining polynomial, we 
     // trust that the embedding chosen is the "safe" one. 
     assert IsIsomorphic(L, Parent(b));
-    return L!b;
+    return true, L!b;
   elif IsDefined(L`Extensions[w], DefiningPolyCoeffs(K)) then
     phi := L`Extensions[w][DefiningPolyCoeffs(K)];
     b := x @@ phi;
     assert IsIsomorphic(L, Parent(b));
-    return L!b;
+    return true, L!b;
   end if;
 
   b, phi := IsSubfield(K, L);
@@ -356,7 +355,7 @@ intrinsic StrongCoerce(
     psi := aut * phi;
     if Abs(ComplexField()!Evaluate(a @ psi, v_sup) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
       subfld`Extensions[v_sub][DefiningPolyCoeffs(supfld)] := psi;
-      return StrongCoerce(L, x);
+      return true, StrongCoerce(L, x);
     end if;
   end for;
   require 0 eq 1 : "This should not be possible. Something has gone wrong.";
