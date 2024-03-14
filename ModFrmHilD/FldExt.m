@@ -6,7 +6,7 @@ declare attributes FldAlg:
   TotallyPositiveUnitsGeneratorsOrients,
   UnitsGenerators,
   ClassGroupReps,
-  MarkedEmbedding,
+  DefaultMarkedEmbedding,
   Extensions,
   UnitCharFieldsByWeight,
   MinDistBtwnRoots,
@@ -177,12 +177,12 @@ intrinsic UnitsGenerators(F::FldNum : exclude_torsion:=true) -> SeqEnum[RngOrdEl
   return F`UnitsGenerators;
 end intrinsic;
 
-/////////////////////// MarkedEmbedding and strong coercion ///////////////////////////
+/////////////////////// DefaultMarkedEmbedding and strong coercion ///////////////////////////
 
-intrinsic MarkedEmbedding(K::FldNum) -> PlcNumElt
+intrinsic DefaultMarkedEmbedding(K::Fld) -> PlcNumElt
   {
     input:
-      K: a number field
+      K: a number field or the rationals
     returns:
       A distinguished infinite place of K.
       By default, this is the first infinite place.
@@ -191,14 +191,22 @@ intrinsic MarkedEmbedding(K::FldNum) -> PlcNumElt
     we choose a distinguished place of K,
     we make the same choice. 
   }
-  if assigned K`MarkedEmbedding then
-    return K`MarkedEmbedding;
+  if K eq Rationals() then
+    return InfinitePlaces(K)[1];
   end if;
-  K`MarkedEmbedding := InfinitePlaces(K)[1];
-  return K`MarkedEmbedding;
+  if assigned K`DefaultMarkedEmbedding then
+    return K`DefaultMarkedEmbedding;
+  end if;
+  K`DefaultMarkedEmbedding := InfinitePlaces(K)[1];
+  return K`DefaultMarkedEmbedding;
 end intrinsic;
 
-intrinsic IsStrongCoercible(L::Fld, x::.) -> BoolElt, FldElt
+intrinsic IsStrongCoercible(
+    L::Fld,
+    x::. : 
+    v:=DefaultMarkedEmbedding(Parent(x)),
+    w:=DefaultMarkedEmbedding(L)
+    ) -> BoolElt, FldElt
   {
     input:
       L - FldNum, FldQuad, FldCyc, or FldRat
@@ -212,26 +220,37 @@ intrinsic IsStrongCoercible(L::Fld, x::.) -> BoolElt, FldElt
   // strong coercion is possible if and only if
   // regular coercion is possible
   if IsCoercible(L, x) then
-    return true, StrongCoerce(L, x);
+  return true, StrongCoerce(L, x : v, w);
   else
     return false, _;
   end if;
 end intrinsic;
 
-intrinsic StrongCoerce(L::Fld, x::RngElt) -> FldElt
+intrinsic StrongCoerce(
+    L::Fld,
+    x::RngElt : 
+    v:=DefaultMarkedEmbedding(FieldOfFractions(Parent(x))),
+    w:=DefaultMarkedEmbedding(L)
+    ) -> FldElt
   {
     input: 
       L - FldNum, FldQuad, FldCyc, or FldRat
       x - An element of the ring of integers of one of the above
+      v - a marked embedding of v
     returns:
       StrongCoerce applied to x coerced into its field of fractions.
   }
 
   K := FieldOfFractions(Parent(x));
-  return StrongCoerce(L, K!x);
+  return StrongCoerce(L, K!x : v, w);
 end intrinsic;
 
-intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
+intrinsic StrongCoerce(
+    L::Fld,
+    x::FldElt :
+    v:=DefaultMarkedEmbedding(Parent(x)),
+    w:=DefaultMarkedEmbedding(L)
+    ) -> FldElt
   {
     input: 
       L - FldNum, FldQuad, FldCyc, or FldRat
@@ -287,25 +306,27 @@ intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
 
   if not assigned K`Extensions then
     K`Extensions := AssociativeArray();
+    K`Extensions[v] := AssociativeArray();
   end if;
 
   if not assigned L`Extensions then
     L`Extensions := AssociativeArray();
+    L`Extensions[w] := AssociativeArray();
   end if;
 
   require IsGalois(K) : "Strong coercion is not yet implemented\
       for non-Galois initial fields";
 
-  if IsDefined(K`Extensions, DefiningPolyCoeffs(L)) then
-    phi := K`Extensions[DefiningPolyCoeffs(L)];
+  if IsDefined(K`Extensions[v], DefiningPolyCoeffs(L)) then
+    phi := K`Extensions[v][DefiningPolyCoeffs(L)];
     b := x @ phi;
     // This chooses an isomorphism between the parent of x @ phi
     // and L. Since they have the same defining polynomial, we 
     // trust that the embedding chosen is the "safe" one. 
     assert IsIsomorphic(L, Parent(b));
     return L!b;
-  elif IsDefined(L`Extensions, DefiningPolyCoeffs(K)) then
-    phi := L`Extensions[DefiningPolyCoeffs(K)];
+  elif IsDefined(L`Extensions[w], DefiningPolyCoeffs(K)) then
+    phi := L`Extensions[w][DefiningPolyCoeffs(K)];
     b := x @@ phi;
     assert IsIsomorphic(L, Parent(b));
     return L!b;
@@ -325,16 +346,16 @@ intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
     end if;
   end if;
 
-  v := MarkedEmbedding(subfld);
-  w := MarkedEmbedding(supfld);
+  v_sub := DefaultMarkedEmbedding(subfld);
+  v_sup := DefaultMarkedEmbedding(supfld);
 
   a := PrimitiveElement(subfld);
-  a_eval := ComplexField()!Evaluate(a, v);
+  a_eval := ComplexField()!Evaluate(a, v_sub);
   auts := Automorphisms(subfld);
   for aut in auts do
     psi := aut * phi;
-    if Abs(ComplexField()!Evaluate(a @ psi, w) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
-      subfld`Extensions[DefiningPolyCoeffs(supfld)] := psi;
+    if Abs(ComplexField()!Evaluate(a @ psi, v_sup) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
+      subfld`Extensions[v_sub][DefiningPolyCoeffs(supfld)] := psi;
       return StrongCoerce(L, x);
     end if;
   end for;
@@ -587,7 +608,7 @@ intrinsic AutsOfKReppingEmbeddingsOfF(F::FldNum, K::FldNum : Precision := 25) ->
   // a distinguished place of K 
   // if we want to view our HMFs as having coefficients over C,
   // we should apply v_0 to all the coefficients
-  v_0 := MarkedEmbedding(K);
+  v_0 := DefaultMarkedEmbedding(K);
   
   aut_dict := AssociativeArray();
   for aut in Automorphisms(K) do
@@ -682,7 +703,7 @@ intrinsic EltToShiftedHalfWeight(x::FldElt, k::SeqEnum[RngIntElt]) -> FldElt
     return &*[auts[i](K!x)^(ExactQuotient(k0 - k[i], 2)) : i in [1 .. #auts]];
   else
     // nonparitious weight
-    v_0 := MarkedEmbedding(K);
+    v_0 := DefaultMarkedEmbedding(K);
     y := &*[auts[i](Sqrt(K!x))^(k0 - k[i]) : i in [1 .. #auts]];
     return PositiveInPlace(y, v_0);
   end if;
@@ -709,7 +730,7 @@ intrinsic PositiveSqrt(nu::FldNumElt, K::FldNum) -> FldNumElt
       place of K.
   }
   mu := Sqrt(K!nu);
-  v_0 := MarkedEmbedding(K);
+  v_0 := DefaultMarkedEmbedding(K);
   return (Evaluate(mu, v_0) ge 0) select mu else -1*mu;
 end intrinsic;
 

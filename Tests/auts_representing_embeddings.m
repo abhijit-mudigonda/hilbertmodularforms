@@ -8,7 +8,7 @@ procedure test(F, K)
   n := Degree(F);
   places := InfinitePlaces(F);
 
-  v_0 := MarkedEmbedding(K);
+  v_0 := DefaultMarkedEmbedding(K);
   a := PrimitiveElement(F);
 
   auts := AutsOfKReppingEmbeddingsOfF(F, K);
