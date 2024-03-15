@@ -17,11 +17,11 @@ procedure test(F, K)
   r, s := Signature(F);
   for i in [1 .. r] do
     // test that the ith automorphism aut_i in auts satisfies v_1(aut_i(a)) = v_i(a)
-    assert Abs(Evaluate(auts[i](a), v_0) - Evaluate(a, places[i])) lt THRESHOLD;
+    assert Abs((auts[i](a) @ v_0) - Evaluate(a, places[i])) lt THRESHOLD;
   end for;
   for i in [r+1 .. r+s] do
-    assert Abs(Evaluate(auts[i](a), v_0) - Evaluate(a, places[i])) lt THRESHOLD;
-    assert Abs(Evaluate(auts[i + s](a), v_0) - Conjugate(Evaluate(a, places[i]))) lt THRESHOLD;
+    assert Abs((auts[i](a) @ v_0) - Evaluate(a, places[i])) lt THRESHOLD;
+    assert Abs((auts[i + s](a) @ v_0) - Conjugate(Evaluate(a, places[i]))) lt THRESHOLD;
   end for;
 end procedure;
 

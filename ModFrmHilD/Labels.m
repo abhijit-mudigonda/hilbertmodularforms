@@ -156,7 +156,7 @@ intrinsic DiscreteLogDict(K::FldCyc) -> Assoc
   d := CyclotomicOrder(K);
   // in case Magma changes the way it chooses primitive elements
   // or orders its infinite places
-  zeta_cc := Evaluate(K.1, DefaultMarkedEmbedding(K));
+  zeta_cc := K.1 @ DefaultMarkedEmbedding(K);
   pi := Pi(RealField());
   i := ComplexField().1;
   require Abs(zeta_cc - (Cos(2*pi/d) + i*Sin(2*pi/d))) lt pi/d : "You should\

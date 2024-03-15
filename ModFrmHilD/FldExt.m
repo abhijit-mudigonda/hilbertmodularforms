@@ -197,7 +197,7 @@ intrinsic DefaultMarkedEmbedding(K::Fld) -> PlcNumElt
   if assigned K`DefaultMarkedEmbedding then
     return K`DefaultMarkedEmbedding;
   end if;
-  K`DefaultMarkedEmbedding := InfinitePlaces(K)[1];
+  K`DefaultMarkedEmbedding := cEmbedNumElt(InfinitePlaces(K)[1]);
   return K`DefaultMarkedEmbedding;
 end intrinsic;
 
@@ -349,11 +349,11 @@ intrinsic IsStrongCoercible(
   v_sup := DefaultMarkedEmbedding(supfld);
 
   a := PrimitiveElement(subfld);
-  a_eval := ComplexField()!Evaluate(a, v_sub);
+  a_eval := ComplexField()!(v_sub(a));
   auts := Automorphisms(subfld);
   for aut in auts do
     psi := aut * phi;
-    if Abs(ComplexField()!Evaluate(a @ psi, v_sup) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
+    if Abs(ComplexField()!(v_sup(a @ psi)) - a_eval) lt 0.5 * MinDistBtwnRoots(subfld) then
       subfld`Extensions[v_sub][DefiningPolyCoeffs(supfld)] := psi;
       return true, StrongCoerce(L, x);
     end if;
@@ -611,7 +611,7 @@ intrinsic AutsOfKReppingEmbeddingsOfF(F::FldNum, K::FldNum : Precision := 25) ->
   
   aut_dict := AssociativeArray();
   for aut in Automorphisms(K) do
-    aut_a_est := Round(10^Precision*Evaluate(aut(a), v_0));
+    aut_a_est := Round(10^Precision*v_0(aut(a)));
     b, x := IsDefined(a_embed_dict, aut_a_est);
     if b then
       aut_dict[x] := aut;
