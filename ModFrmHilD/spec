@@ -6,6 +6,7 @@
   Cusps.m
   Elements.m
   EllipticPoints.m
+  Embeddings.m
   Export.m
   FldExt.m
   Formatting.m
