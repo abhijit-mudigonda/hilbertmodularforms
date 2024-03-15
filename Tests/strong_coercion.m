@@ -7,8 +7,8 @@ procedure test(a, K1, K2)
   assert a in K1;
   b := StrongCoerce(K2, a); 
 
-  a_eval := (K1 ne Rationals()) select Evaluate(a, DefaultMarkedEmbedding(K1)) else a;
-  b_eval := (K2 ne Rationals()) select Evaluate(b, DefaultMarkedEmbedding(K2)) else b;
+  a_eval := (K1 ne Rationals()) select (a @ DefaultMarkedEmbedding(K1)) else a;
+  b_eval := (K2 ne Rationals()) select (b @ DefaultMarkedEmbedding(K2)) else b;
   assert Abs(a_eval - b_eval) lt CC_THRESHOLD;
 
   c := StrongCoerce(K1, b);
@@ -56,7 +56,7 @@ w := DefaultMarkedEmbedding(M);
 a := K.1;
 b := L.1;
 c := StrongMultiply([* a, b *] : K:=M);
-assert Abs(Evaluate(c, w) - Evaluate(a, v_K) * Evaluate(b, v_L)) lt CC_THRESHOLD;
+assert Abs((c @ w) - (a @ v_K) * (b @ v_L)) lt CC_THRESHOLD;
 
 B := ListToStrongCoercedSeq([* 1, 2/3, K.1, L.1 *]);
 assert IsIsomorphic(Parent(B[1]), Compositum(K, L));
