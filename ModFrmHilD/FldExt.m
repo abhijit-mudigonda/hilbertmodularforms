@@ -10,9 +10,9 @@ declare attributes FldAlg:
   Extensions,
   UnitCharFieldsByWeight,
   MinDistBtwnRoots,
+  Embeddings,
   IsGalois
   ;
-
 
 /////////////////////// (Narrow) Class Group Representatives ////////////
 // FIXME : Move narrow class group code from graded ring to this section
