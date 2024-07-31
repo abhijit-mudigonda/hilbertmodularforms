@@ -16,9 +16,7 @@ import !"Geometry/ModFrmHil/hecke.m" :
   restriction;
 
 import "hackobj.m" : HMF0;
-import "hecke_field.m" :
-  hecke_matrix_field,
-  WeightRepresentation;
+import "hecke_field.m" : hecke_matrix_field;
 
 /**************** New intrinsics **********************/
 
