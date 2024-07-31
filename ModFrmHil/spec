@@ -3,6 +3,7 @@
   finitefield.m
   hackobj.m
   hecke_field.m
+  level.m
 
   # we replace: DegeneracyMapDomain and WeightRepresentation
   copypaste/definite.m
@@ -11,4 +12,6 @@
   copypaste/hackobj.m
   # we replace: operator, HMF0, hecke_matrix_field, minimal_hecke_matrix_field
   copypaste/hecke.m
+  # we replace: HeckeMatrix1
+  copypaste/level.m
 }

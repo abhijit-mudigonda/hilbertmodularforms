@@ -17,6 +17,7 @@ import !"Geometry/ModFrmHil/hecke.m" :
 
 import "hackobj.m" : HMF0;
 import "hecke_field.m" : hecke_matrix_field;
+import "copypaste/level.m" : HeckeMatrix;
 
 /**************** New intrinsics **********************/
 
