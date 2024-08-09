@@ -14,6 +14,7 @@ import "hecke.m" : pseudo_inverse;
 
 // hack: replace HeckeMatrix1 with our own
 import "../level.m" : HeckeMatrix1;
+import "../weight_rep.m" : GetOrMakeP1;
 
 // hack: converted the following imports to absolute imports
 import !"Algebra/AlgQuat/enumerate.m" :
@@ -436,6 +437,7 @@ FindGammas := function(Ol, Gamma : Bound := 100);
   return foundgammas, cosets;
 end function;
 
+/* hack: rewritten in weight_rep.m
 GetOrMakeP1 := function(Gamma, N);
   Z_F := Order(N);
   Z_FN := quo<Z_F | N>;
@@ -459,6 +461,7 @@ GetOrMakeP1 := function(Gamma, N);
   end if;
   return P1N, P1Nrep;
 end function;
+*/
 
 intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgMatElt
   {Computes the matrix of the Hecke operator T_ell acting on H^1 of the 

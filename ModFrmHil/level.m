@@ -11,12 +11,13 @@ import !"Geometry/ModFrmHil/proj1.m" : residue_class_reps;
 import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne, LeftIdealGens;
 import !"Geometry/ModFrmHil/hecke.m" : pseudo_inverse;
 
-import !"Geometry/ModFrmHil/level.m" : Gamma0Cosets, GetOrMakeP1, 
+import !"Geometry/ModFrmHil/level.m" : Gamma0Cosets,
        RightPermutationActions, ConjugationPermutationActions, FindGammas;
 
 import !"Algebra/AlgQuat/enumerate.m" :
              EnumerativeSearchInternal, ReducedBasisInternal;
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
+import "weight_rep.m" : GetOrMakeP1;
 
 //-------------
 //
