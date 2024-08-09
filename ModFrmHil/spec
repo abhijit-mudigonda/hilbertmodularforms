@@ -5,6 +5,7 @@
   hecke_field.m
   level.m
   hecke.m
+  weight_rep.m
 
   # we replace: DegeneracyMapDomain and WeightRepresentation
   copypaste/definite.m
