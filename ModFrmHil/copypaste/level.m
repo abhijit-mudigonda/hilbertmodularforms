@@ -14,7 +14,7 @@ import "hecke.m" : pseudo_inverse;
 
 // hack: replace HeckeMatrix1 with our own
 import "../level.m" : HeckeMatrix1;
-import "../weight_rep.m" : GetOrMakeP1_new;
+import "../weight_rep.m" : Gamma0Cosets, GetOrMakeP1_new;
 
 // hack: converted the following imports to absolute imports
 import !"Algebra/AlgQuat/enumerate.m" :
@@ -25,6 +25,7 @@ import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
 declare attributes GrpPSL2 : LevelCosets, LevelRPAs, LevelCPAs, LevelH1s, ShimGroupSidepairsQuats, HeckeMatrixoo, HardHeckeMatrices, P1s_new;
 declare attributes AlgQuat : NarrowClassGroup, NarrowClassGroupMap;
 
+/* hack: modified in weight_rep.m
 //-------------
 //
 // Compute the set of cosets.
@@ -248,6 +249,7 @@ ConjugationPermutationActions := function(Gamma, N, Z_FN, iota, P1N, cosets, P1N
   end if;
   return Q1, CPAs1, Q2, CPAs2;  
 end function;
+*/
 
 /* hack: replaced via import
 //-------------

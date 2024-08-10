@@ -11,13 +11,82 @@ import !"Geometry/ModFrmHil/proj1.m" : residue_class_reps;
 import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne, LeftIdealGens;
 import !"Geometry/ModFrmHil/hecke.m" : pseudo_inverse;
 
-import !"Geometry/ModFrmHil/level.m" : Gamma0Cosets,
-       RightPermutationActions, ConjugationPermutationActions, FindGammas;
+import !"Geometry/ModFrmHil/level.m" : FindGammas;
 
 import !"Algebra/AlgQuat/enumerate.m" :
              EnumerativeSearchInternal, ReducedBasisInternal;
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
-import "weight_rep.m" : GetOrMakeP1_new;
+import "weight_rep.m" : GetOrMakeP1_new, Gamma0Cosets, RightPermutationActions;
+
+ConjugationPermutationActions := function(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep);
+  if not assigned Gamma`LevelCPAs then
+    Gamma`LevelCPAs := AssociativeArray();
+  end if;
+
+  if IsDefined(Gamma`LevelCPAs, N) then
+    return Explode(Gamma`LevelCPAs[N]);
+  end if;
+
+  Z_F := BaseRing(BaseRing(Gamma));
+  bas, n_seq := residue_class_reps(N);
+  Rset:=[[s[m]: m in [1..#s]]: s in Set(CartesianProduct(<[0..n_seq[l]-1]: l in [1..#n_seq]>))];
+
+  iotaalphavs := [];
+  for alphai in cosets do
+    _, v := P1Nrep(iota(alphai)[2], false, false);
+    Append(~iotaalphavs, [Z_F!t : t in Eltseq(v)]);
+  end for;
+
+  qcnt := 0;
+  CPAs1bas := [];
+  for q in bas do
+    qcnt +:= 1;
+    perm := [];
+    for w in iotaalphavs do
+      _, v := P1Nrep([w[1], w[1]*q + w[2]], false, false);
+      Append(~perm, Index(P1N, v));
+    end for;
+    perm := SymmetricGroup(#cosets)!perm;
+    Append(~CPAs1bas, perm);
+  end for;
+
+  Z_FNstar, mZ_FNstar := UnitGroup(Z_FN);
+  basmult := [Z_F!mZ_FNstar(Z_FNstar.i) : i in [1..#Generators(Z_FNstar)]];
+  qcnt := 0;
+  CPAs2bas := [];
+  for q in basmult do
+    qcnt +:= 1;
+    perm := [];
+    for w in iotaalphavs do
+      _, v := P1Nrep([w[1], q*w[2]], false, false);
+      Append(~perm, Index(P1N, v));
+    end for;
+    perm := SymmetricGroup(#cosets)!perm;
+    Append(~CPAs2bas, perm);
+  end for;
+  
+  Q1 := [Z_FN!x : x in Rset];
+  CPAs1 := [];
+  for i := 1 to #Rset do
+    perm := &*[CPAs1bas[j]^Rset[i][j] : j in [1..#CPAs1bas]];
+    Append(~CPAs1, perm);
+  end for;
+  ChangeUniverse(~Q1, Z_FN);
+
+  Q2 := [];
+  CPAs2 := [];
+  for i := 1 to #Rset do
+    z := Z_FN!Rset[i];
+    if IsUnit(z) then
+      perm := &*[CPAs2bas[j]^zseq[j] : j in [1..#CPAs2bas]] where zseq is Eltseq(z@@mZ_FNstar);
+      Append(~CPAs2, perm);
+      Append(~Q2, z);
+    end if;
+  end for;
+
+  Gamma`LevelCPAs[N] := <Q1, CPAs1, Q2, CPAs2>;
+  return Q1, CPAs1, Q2, CPAs2;  
+end function;
 
 //-------------
 //
