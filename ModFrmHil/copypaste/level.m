@@ -14,7 +14,7 @@ import "hecke.m" : pseudo_inverse;
 
 // hack: replace HeckeMatrix1 with our own
 import "../level.m" : HeckeMatrix1;
-import "../weight_rep.m" : GetOrMakeP1;
+import "../weight_rep.m" : GetOrMakeP1_new;
 
 // hack: converted the following imports to absolute imports
 import !"Algebra/AlgQuat/enumerate.m" :
@@ -22,7 +22,7 @@ import !"Algebra/AlgQuat/enumerate.m" :
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
 
 
-declare attributes GrpPSL2 : LevelCosets, LevelRPAs, LevelCPAs, LevelH1s, ShimGroupSidepairsQuats, HeckeMatrixoo, HardHeckeMatrices, P1s;
+declare attributes GrpPSL2 : LevelCosets, LevelRPAs, LevelCPAs, LevelH1s, ShimGroupSidepairsQuats, HeckeMatrixoo, HardHeckeMatrices, P1s_new;
 declare attributes AlgQuat : NarrowClassGroup, NarrowClassGroupMap;
 
 //-------------
@@ -438,7 +438,7 @@ FindGammas := function(Ol, Gamma : Bound := 100);
 end function;
 
 /* hack: rewritten in weight_rep.m
-GetOrMakeP1 := function(Gamma, N);
+GetOrMakeP1_new := function(Gamma, N);
   Z_F := Order(N);
   Z_FN := quo<Z_F | N>;
   found := false;
@@ -500,7 +500,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
       "Hecke operator not defined when ell divides D; use Atkin-Lehner operator instead";
   end if;
 
-  P1N, P1Nrep := GetOrMakeP1(Gamma, N);
+  P1N, P1Nrep := GetOrMakeP1_new(Gamma, N);
 
   if not assigned B`NarrowClassGroup then
     vprintf ModFrmHil: "Computing narrow class group of F .................... ";
@@ -642,7 +642,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
         if #Nprimefacts ne 0 then
           Nprime := &*Nprimefacts;
           _, iotaold := ResidueMatrixRing(Oold, Nprime);
-          P1Nprime, P1Nprimerep := GetOrMakeP1(Gamma, Nprime);
+          P1Nprime, P1Nprimerep := GetOrMakeP1_new(Gamma, Nprime);
           Z_FNprime := quo<Z_F | Nprime>;
           cosetsold := Gamma0Cosets(Oold`FuchsianGroup, Nprime, Z_FNprime, iotaold, P1Nprime, P1Nprimerep);
           iotadelta := iotaold(delta^(-1));
@@ -725,7 +725,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
            &*[Discriminant(O`RightIdealClasses[ridsbasis][3][1] meet O`RightIdealClasses[ridsbasis][3][i]) : 
                                       i in [2..#O`RightIdealClasses[ridsbasis][3]]] + fakell eq 1*Z_F;
   if not elleqoo and Valuation(Discriminant(B),ell) eq 0 then
-    P1ell, P1ellrep := GetOrMakeP1(Gamma, ell);
+    P1ell, P1ellrep := GetOrMakeP1_new(Gamma, ell);
     Z_Fell := quo<Z_F | ell>;
 
     if not inNormSupport then
@@ -757,7 +757,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
   leftOrders := O`RightIdealClasses[ridsbasis][3];
   assert N + &*O`RightIdealClasses[ridsbasis][1] eq 1*Z_F;
   for ellq in [pp[1] : pp in Factorization(N)] do
-    P1ellq, P1ellqrep := GetOrMakeP1(Gamma, ellq);
+    P1ellq, P1ellqrep := GetOrMakeP1_new(Gamma, ellq);
     M2ellq, phiellq, mFellq := pMatrixRing(leftOrders[1], ellq);
     for i := 1 to #leftOrders do
       if not assigned leftOrders[i]`pMatrixRings then
@@ -822,7 +822,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
 
 // GetMemoryUsage(); MemProfile();
 
-  P1N, P1Nrep := GetOrMakeP1(Gamma_mother, N);
+  P1N, P1Nrep := GetOrMakeP1_new(Gamma_mother, N);
 
   B := Algebra(O_mother);
   F := BaseRing(B);
@@ -947,7 +947,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
       assert #lambdas eq 1;
     elif ellU then
       Z_Fell := quo<Z_F | ell>;
-      P1ellfull, P1ellfullrep := GetOrMakeP1(Gamma_mother, ell);
+      P1ellfull, P1ellfullrep := GetOrMakeP1_new(Gamma_mother, ell);
       ellcosetsfull := Gamma0Cosets(Gamma, ell, Z_Fell, iotaell, P1ellfull, P1ellfullrep);
       ooind := 1;
       while ooind le #P1ellfull do
@@ -1062,7 +1062,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
       end if;
     else // Go for the fast code.
       lambda := LeftIdealGens(Gamma, ell, JJp, 1, O, Op, iotaell);
-      P1ell, P1ellrep := GetOrMakeP1(Gamma_mother, ell);
+      P1ell, P1ellrep := GetOrMakeP1_new(Gamma_mother, ell);
       Z_Fell := quo<Z_F | ell>;
       ellcosets := Gamma0Cosets(Gamma, ell, Z_Fell, iotaell, P1ell, P1ellrep);
 

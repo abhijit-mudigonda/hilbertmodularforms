@@ -66,22 +66,22 @@ intrinsic Splittings(B::AlgQuat) -> SeqEnum[Map], FldNum, FldNum
   return splitting_seq, K, weight_field;
 end intrinsic;
 
-function GetOrMakeP1(Gamma, N)
+function GetOrMakeP1_new(Gamma, N)
   // Gamma - GrpPSL2
   // N - RngOrdIdl
   //
   // Returns the cached output of ProjectiveLine(Gamma, N)
   Z_F := Order(N);
   Z_FN := quo<Z_F | N>;
-  if not assigned Gamma`P1s then
-    Gamma`P1s := AssociativeArray();
+  if not assigned Gamma`P1s_new then
+    Gamma`P1s_new := AssociativeArray();
   end if;
-  if IsDefined(Gamma`P1s, N) then
-    tup := (Gamma`P1s)[N];
+  if IsDefined(Gamma`P1s_new, N) then
+    tup := (Gamma`P1s_new)[N];
     return tup[1], tup[2];
   else
     P1N, P1Nrep := ProjectiveLine(Z_FN);
-    Gamma`P1s[N] := <P1N, P1Nrep>;
+    Gamma`P1s_new[N] := <P1N, P1Nrep>;
     return P1N, P1Nrep;
   end if;
 end function;

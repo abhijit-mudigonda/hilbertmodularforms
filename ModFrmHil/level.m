@@ -17,7 +17,7 @@ import !"Geometry/ModFrmHil/level.m" : Gamma0Cosets,
 import !"Algebra/AlgQuat/enumerate.m" :
              EnumerativeSearchInternal, ReducedBasisInternal;
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
-import "weight_rep.m" : GetOrMakeP1;
+import "weight_rep.m" : GetOrMakeP1_new;
 
 //-------------
 //
@@ -167,7 +167,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
 
 // GetMemoryUsage(); MemProfile();
 
-  P1N, P1Nrep := GetOrMakeP1(Gamma_mother, N);
+  P1N, P1Nrep := GetOrMakeP1_new(Gamma_mother, N);
 
   B := Algebra(O_mother);
   F := BaseRing(B);
@@ -292,7 +292,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
       assert #lambdas eq 1;
     elif ellU then
       Z_Fell := quo<Z_F | ell>;
-      P1ellfull, P1ellfullrep := GetOrMakeP1(Gamma_mother, ell);
+      P1ellfull, P1ellfullrep := GetOrMakeP1_new(Gamma_mother, ell);
       ellcosetsfull := Gamma0Cosets(Gamma, ell, Z_Fell, iotaell, P1ellfull, P1ellfullrep);
       ooind := 1;
       while ooind le #P1ellfull do
@@ -407,7 +407,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
       end if;
     else // Go for the fast code.
       lambda := LeftIdealGens(Gamma, ell, JJp, 1, O, Op, iotaell);
-      P1ell, P1ellrep := GetOrMakeP1(Gamma_mother, ell);
+      P1ell, P1ellrep := GetOrMakeP1_new(Gamma_mother, ell);
       Z_Fell := quo<Z_F | ell>;
       ellcosets := Gamma0Cosets(Gamma, ell, Z_Fell, iotaell, P1ell, P1ellrep);
 
