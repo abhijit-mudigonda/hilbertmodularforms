@@ -22,7 +22,7 @@ import !"Algebra/AlgQuat/enumerate.m" :
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
 
 
-declare attributes GrpPSL2 : LevelCosets, LevelRPAs, LevelCPAs, LevelH1s, ShimGroupSidepairsQuats, HeckeMatrixoo, HardHeckeMatrices, P1s_new;
+declare attributes GrpPSL2 : LevelCosets_new, LevelRPAs_new, LevelCPAs_new, LevelH1s, ShimGroupSidepairsQuats, HeckeMatrixoo, HardHeckeMatrices, P1s_new;
 declare attributes AlgQuat : NarrowClassGroup, NarrowClassGroupMap;
 
 /* hack: modified in weight_rep.m

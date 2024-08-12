@@ -19,12 +19,12 @@ import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
 import "weight_rep.m" : GetOrMakeP1_new, Gamma0Cosets, RightPermutationActions;
 
 ConjugationPermutationActions := function(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep);
-  if not assigned Gamma`LevelCPAs then
-    Gamma`LevelCPAs := AssociativeArray();
+  if not assigned Gamma`LevelCPAs_new then
+    Gamma`LevelCPAs_new := AssociativeArray();
   end if;
 
-  if IsDefined(Gamma`LevelCPAs, N) then
-    return Explode(Gamma`LevelCPAs[N]);
+  if IsDefined(Gamma`LevelCPAs_new, N) then
+    return Explode(Gamma`LevelCPAs_new[N]);
   end if;
 
   Z_F := BaseRing(BaseRing(Gamma));
@@ -84,7 +84,7 @@ ConjugationPermutationActions := function(Gamma, N, Z_FN, iota, P1N, cosets, P1N
     end if;
   end for;
 
-  Gamma`LevelCPAs[N] := <Q1, CPAs1, Q2, CPAs2>;
+  Gamma`LevelCPAs_new[N] := <Q1, CPAs1, Q2, CPAs2>;
   return Q1, CPAs1, Q2, CPAs2;  
 end function;
 

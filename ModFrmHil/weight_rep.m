@@ -43,15 +43,15 @@ function LeftToRightCosets(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep)
 end function;
 
 function Gamma0Cosets(Gamma, N, Z_FN, iota, P1, P1rep : LeftCosets:=true)
-  if not assigned Gamma`LevelCosets then
-    Gamma`LevelCosets := AssociativeArray();
+  if not assigned Gamma`LevelCosets_new then
+    Gamma`LevelCosets_new := AssociativeArray();
   end if;
 
-  if IsDefined(Gamma`LevelCosets, N) then
+  if IsDefined(Gamma`LevelCosets_new, N) then
     if LeftCosets then
-      return Gamma`LevelCosets[N];
+      return Gamma`LevelCosets_new[N];
     else
-      return LeftToRightCosets(Gamma, N, Z_FN, iota, P1, Gamma`LevelCosets[N], P1rep);
+      return LeftToRightCosets(Gamma, N, Z_FN, iota, P1, Gamma`LevelCosets_new[N], P1rep);
     end if;
   end if;
 
@@ -114,7 +114,7 @@ function Gamma0Cosets(Gamma, N, Z_FN, iota, P1, P1rep : LeftCosets:=true)
     assert v eq P1[i];
   end for;
 
-  Gamma`LevelCosets[N] = [c[1] : c in cosets];
+  Gamma`LevelCosets_new[N] := [c[1] : c in cosets];
   vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
   return Gamma0Cosets(Gamma, N, Z_FN, iota, P1, P1rep : LeftCosets:=LeftCosets);
 end function;
@@ -126,12 +126,12 @@ end function;
 //-------------
 
 function RightPermutationActions(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep)
-  if not assigned Gamma`LevelRPAs then
-    Gamma`LevelRPAs := AssociativeArray();
+  if not assigned Gamma`LevelRPAs_new then
+    Gamma`LevelRPAs_new := AssociativeArray();
   end if;
 
-  if IsDefined(Gamma`LevelRPAs, N) then
-    return Explode(Gamma`LevelRPAs[N]);
+  if IsDefined(Gamma`LevelRPAs_new, N) then
+    return Explode(Gamma`LevelRPAs_new[N]);
   end if;
 
   vprintf ModFrmHil: "Computing right permutation actions .................. ";
@@ -156,7 +156,7 @@ function RightPermutationActions(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep)
 
   vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
 
-  Gamma`LevelRPAs[N] := <RPAs, RPAsinv>;
+  Gamma`LevelRPAs_new[N] := <RPAs, RPAsinv>;
   return RPAs, RPAsinv;
 end function;
 
