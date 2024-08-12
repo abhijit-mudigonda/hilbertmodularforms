@@ -341,7 +341,6 @@ function weight_rep_pr(q, pr, hp, F, split_matpr, a_seq, b_seq)
 end function;
 
 
-
 /* Here we define the weight representation in characteristic zero. 
 
    Representation at the ith place is det^(m[i]) tensor Sym^(n[i]). 
@@ -388,6 +387,7 @@ end intrinsic;
 // Tensor product is associative; for efficiency always do
 // TensorProduct(small_mat, large_mat)
 
+/*
 function weight_map_arch(q, splittings, K, m, n)
    d := #m;
    M := MatrixRing(K,1)!1;
@@ -418,7 +418,7 @@ function weight_map_arch(q, splittings, K, m, n)
    end for;
    return M;
 end function;
-
+*/
 
 /* hack: replaced via the import "../hecke_field.m" : ...
 function WeightRepresentation(M) // ModFrmHil -> Map
