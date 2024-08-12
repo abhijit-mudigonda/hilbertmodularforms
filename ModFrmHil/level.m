@@ -94,12 +94,14 @@ end function;
 //
 //-------------
 
-InducedRelation := function(rel, RPAs, RPAsinv : IsTrivialCoefficientModule:=false);
-  rpa1 := RPAs[1];
+InducedRelation := function(rel, RPAs : IsTrivialCoefficientModule:=false);
+  // set parameters based on an arbitrary element 
+  rpa1 := RPAs[Rep(Keys(RPAs))];
   R    := BaseRing(rpa1);
   nr   := Nrows(rpa1);
-  mats := [SparseMatrix(R, nr, nr) : i in [1..#RPAs]];
 
+  // the number of keys of RPAs is equal to twice the number of generators
+  mats := [SparseMatrix(R, nr, nr) : i in [1..(#Keys(RPAs) div 2)]];
   I := IdentitySparseMatrix(R, nr);
 
   // if the coefficient module is trivial then
@@ -123,8 +125,8 @@ InducedRelation := function(rel, RPAs, RPAsinv : IsTrivialCoefficientModule:=fal
     for i := #rel to 1 by -1 do
       absi := Abs(rel[i]);
       if rel[i] lt 0 then
-        mats[absi] -:= RPAsinv[absi]*g;
-        g := RPAsinv[absi]*g;
+        mats[absi] -:= RPAs[rel[i]]*g;
+        g := RPAs[rel[i]]*g;
       else
         mats[absi] +:= g;
         g := RPAs[absi]*g;
@@ -134,7 +136,7 @@ InducedRelation := function(rel, RPAs, RPAsinv : IsTrivialCoefficientModule:=fal
   return VerticalJoin(mats), rel;
 end function;
 
-CompleteRelationFromUnit := function(Gamma, alpha, RPAs, RPAsinv : IsTrivialCoefficientModule:=false);
+CompleteRelationFromUnit := function(Gamma, alpha, RPAs : IsTrivialCoefficientModule:=false);
   // this expresses alpha in terms of the generators of Gamma
   // TODO abhijitm - this may not be a problem, but I don't think these generators
   // need to agree with the generators produced by Generators(Group(Gamma)).
@@ -143,7 +145,7 @@ CompleteRelationFromUnit := function(Gamma, alpha, RPAs, RPAsinv : IsTrivialCoef
   assert IsScalar(Quaternion(reldata[1]));
   rel := reldata[3];
 
-  mat, rel := InducedRelation(rel, RPAs, RPAsinv : IsTrivialCoefficientModule:=IsTrivialCoefficientModule);
+  mat, rel := InducedRelation(rel, RPAs : IsTrivialCoefficientModule:=IsTrivialCoefficientModule);
   return mat, rel;
 end function;
 
@@ -153,7 +155,7 @@ end function;
 //
 //-------------
 
-function InducedH1Internal(Gamma, N, cosets, RPAs, RPAsinv);
+function InducedH1Internal(Gamma, N, cosets, RPAs);
   if assigned Gamma`LevelH1s then
     for H1 in Gamma`LevelH1s do
       if H1[1] eq N then
@@ -167,11 +169,11 @@ function InducedH1Internal(Gamma, N, cosets, RPAs, RPAsinv);
   gammagens := [Quaternion(m(U.i)) : i in [1..d]];
 
   R := HorizontalJoin(
-    [InducedRelation(Eltseq(LHS(rel)), RPAs, RPAsinv) : rel in Relations(U)]);
+    [InducedRelation(Eltseq(LHS(rel)), RPAs) : rel in Relations(U)]);
   Z := Kernel(R);
 
   I := IdentitySparseMatrix(BaseRing(RPAs[1]), Nrows(RPAs[1]));
-  coB := HorizontalJoin([r - I : r in RPAs]);
+  coB := HorizontalJoin([RPAs[i] - I : i in [1 .. (#RPAs div 2)]]);
   coB := [Z!coB[i] : i in [1..Nrows(coB)]];
   ZcoB := sub<Z | coB>;
 
@@ -200,9 +202,9 @@ function InducedH1Internal(Gamma, N, cosets, RPAs, RPAsinv);
   return Htilde, mH;
 end function;
 
-function InducedH1(Gamma, Gammap, N, cosets, cosetsp, RPAs, RPAsinv, RPAsp, RPAspinv);
-  Htilde, mH := InducedH1Internal(Gamma, N, cosets, RPAs, RPAsinv);
-  Htildep, mHp := InducedH1Internal(Gammap, N, cosetsp, RPAsp, RPAspinv);
+function InducedH1(Gamma, Gammap, N, cosets, cosetsp, RPAs, RPAsp);
+  Htilde, mH := InducedH1Internal(Gamma, N, cosets, RPAs);
+  Htildep, mHp := InducedH1Internal(Gammap, N, cosetsp, RPAsp);
 
   return Htildep, mH;
 end function;
@@ -266,8 +268,8 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
   cosets := Gamma0Cosets(Gamma, N, Z_FN, iota, P1N, P1Nrep);
   cosetsp := Gamma0Cosets(Gammap, N, Z_FN, iotap, P1N, P1Nrep);
 
-  RPAs, RPAsinv := RightPermutationActions(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep);
-  RPAsp, RPAspinv := RightPermutationActions(Gammap, N, Z_FN, iotap, P1N, cosetsp, P1Nrep);
+  RPAs := RightPermutationActions(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep);
+  RPAsp := RightPermutationActions(Gammap, N, Z_FN, iotap, P1N, cosetsp, P1Nrep);
 
   D := Parent(Gamma`ShimFDDisc[1]); 
 
@@ -397,7 +399,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
             c := Index(P1ell, v);
           end if;
           y := Op!(lambdas[j]*liftsik*lambdas[c]^(-1));
-          y,rel := CompleteRelationFromUnit(Gammap, y, RPAsp, RPAspinv : IsTrivialCoefficientModule := false);
+          y,rel := CompleteRelationFromUnit(Gammap, y, RPAsp : IsTrivialCoefficientModule := false);
           Append(~Gk, y);
         end for;
 
@@ -406,7 +408,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
       Append(~Y_U, G);
     end for;
 
-    Htilde, mH := InducedH1(Gamma, Gammap, N, cosets, cosetsp, RPAs, RPAsinv, RPAsp, RPAspinv);
+    Htilde, mH := InducedH1(Gamma, Gammap, N, cosets, cosetsp, RPAs, RPAsp);
 
     if #Htilde eq 0 then
       return [];
@@ -553,7 +555,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
     G := [];
 
     for j in [1..numP1] do
-      y := CompleteRelationFromUnit(Gammap, Y_Op[i][j], RPAsp, RPAspinv : IsTrivialCoefficientModule := IsLevelOne);
+      y := CompleteRelationFromUnit(Gammap, Y_Op[i][j], RPAsp : IsTrivialCoefficientModule := IsLevelOne);
       if not IsLevelOne then
         y := y*Zp[X[i][j]];
       end if;
@@ -566,7 +568,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL
 
   vprintf ModFrmHil: "Computing H1 (coinduced) ............................. ";
   vtime ModFrmHil:
-  Htilde, mH := InducedH1(Gamma, Gammap, N, cosets, cosetsp, RPAs, RPAsinv, RPAsp, RPAspinv);
+  Htilde, mH := InducedH1(Gamma, Gammap, N, cosets, cosetsp, RPAs, RPAsp);
   
   if #Htilde eq 0 then
     return [];
