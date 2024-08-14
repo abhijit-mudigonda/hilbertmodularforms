@@ -227,21 +227,21 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
   Z_F := MaximalOrder(F);
   FeqQQ := F cmpeq Rationals();
 
-  if not assigned Gamma`HeckeMatrixoo then
-    Gamma`HeckeMatrixoo := AssociativeArray();
+  if not assigned Gamma`HeckeMatrixoo_new then
+    Gamma`HeckeMatrixoo_new := AssociativeArray();
   end if;
-  if not assigned Gamma`HardHeckeMatrices then
-    Gamma`HardHeckeMatrices := AssociativeArray();
+  if not assigned Gamma`HardHeckeMatrices_new then
+    Gamma`HardHeckeMatrices_new := AssociativeArray();
   end if;
 
   elleqoo := ell cmpeq "Infinity";
-  if elleqoo and IsDefined(Gamma`HeckeMatrixoo, N) then
+  if elleqoo and IsDefined(Gamma`HeckeMatrixoo_new, N) then
     vprint ModFrmHil, 2: "Recalling saved matrix! ...... ";
-    return Gamma`HeckeMatrixoo[N];
+    return Gamma`HeckeMatrixoo_new[N];
   elif (not elleqoo) and IsDefined(
-      Gamma`HardHeckeMatrices, <N, ell, UseAtkinLehner>) then
+      Gamma`HardHeckeMatrices_new, <N, ell, UseAtkinLehner>) then
     vprint ModFrmHil, 2: "Recalling saved matrix! ...... ";
-    return Gamma`HardHeckeMatrices[<N, ell, UseAtkinLehner>];
+    return Gamma`HardHeckeMatrices_new[<N, ell, UseAtkinLehner>];
   end if;
     
   require not UseAtkinLehner or Valuation(Discriminant(O)*N, ell) gt 0 :
@@ -551,9 +551,9 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
 
 
   if elleqoo then
-    Gamma`HeckeMatrixoo[N] := M;
+    Gamma`HeckeMatrixoo_new[N] := M;
   elif UseAtkinLehner or (ell + Discriminant(O)/Discriminant(B)*N eq ell) then
-    Gamma`HardHeckeMatrices[<N, ell, UseAtkinLehner>] := M;
+    Gamma`HardHeckeMatrices_new[<N, ell, UseAtkinLehner>] := M;
   end if;
 
   return M, CharacteristicPolynomial(M);
