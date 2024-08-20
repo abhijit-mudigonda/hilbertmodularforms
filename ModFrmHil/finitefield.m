@@ -225,11 +225,11 @@ function WeightRepresentationFiniteField(M, p : hack:=true) // ModFrmHil -> Map
         M2KtoFF := hom<MatrixRing(K, 2) -> MatrixRing(FF, 2) | KtoFF>;
         splitting_seq_FF := [s*M2KtoFF : s in splitting_seq];
         M2FF:=MatrixRing(FF, M`weight_dimension);
-        M`weight_rep:=map<H -> M2FF|q :-> weight_map_arch(q, m, n)>;
+        M`weight_rep:=map<H -> M2FF|q :-> weight_map_arch(q, n : m:=m)>;
         M`weight_base_field := FF;
         // hack ends
       else
-        M`weight_rep:=map<H -> M2K|q :-> weight_map_arch(q, m, n)>;
+        M`weight_rep:=map<H -> M2K|q :-> weight_map_arch(q, n : m:=m)>;
       end if;
     end if;
     return M`weight_rep, M`weight_dimension, M`weight_base_field;
