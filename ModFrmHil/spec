@@ -2,9 +2,10 @@
   diamond.m
   finitefield.m
   hackobj.m
-  hecke_field.m
-  level.m
   hecke.m
+  hecke_field.m
+  ideal_datum.m
+  level.m
   weight_rep.m
 
   # we replace: DegeneracyMapDomain and WeightRepresentation
