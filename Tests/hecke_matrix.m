@@ -20,8 +20,12 @@ PRINT_TIMES := true;
 // is computed it is cached and subsequent runs can be meaningfully
 // compared.
 procedure compare_and_time(Gamma, N, pp : UseAtkinLehner:=false)
+  F := BaseField(QuaternionAlgebra(Gamma));
+  // because HeckeMatrix only works in parallel weight, this is the setting
+  // in which we test
+  k := [2 : _ in [1 .. Degree(F)]];
   t := Cputime();
-  M2 := HeckeMatrix2(Gamma, N, pp : UseAtkinLehner:=UseAtkinLehner);
+  M2 := HeckeMatrix2(Gamma, N, pp, k, 1 : UseAtkinLehner:=UseAtkinLehner);
   hm2_time := Cputime(t);
 
   t := Cputime();

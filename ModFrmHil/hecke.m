@@ -6,7 +6,7 @@ import !"Geometry/ModFrmHil/hecke.m" : make_ideal;
 function basis_of_plus_subspace(M) 
   Gamma := FuchsianGroup(QuaternionOrder(M));
   N := Level(M) / make_ideal(Discriminant(QuaternionOrder(M)));
-  T := HeckeMatrix2(Gamma, N, "Infinity");
+  T := HeckeMatrix2(Gamma, N, "Infinity", Weight(M), DirichletCharacter(M));
   if T cmpeq [] then 
     T := Matrix(Integers(), 0, 0, []); 
   end if;
