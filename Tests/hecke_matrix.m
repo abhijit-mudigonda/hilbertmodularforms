@@ -10,7 +10,7 @@ NUM_TRIALS := 2;
 OPTIONAL_TESTS := false;
 
 // set to true if you want to print times
-PRINT_TIMES := false;
+PRINT_TIMES := true;
 
 // compares HeckeMatrix(Gamma, N, pp) to HeckeMatrix2(Gamma, N, pp)
 // and optionally returns their respective durations
