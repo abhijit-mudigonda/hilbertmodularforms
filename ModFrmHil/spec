@@ -4,13 +4,14 @@
   hackobj.m
   hecke_field.m
   level.m
+  hecke.m
 
   # we replace: DegeneracyMapDomain and WeightRepresentation
   copypaste/definite.m
   # we replace: HMF0
   # and fix import for DimensionBianchi
   copypaste/hackobj.m
-  # we replace: operator, HMF0, hecke_matrix_field, minimal_hecke_matrix_field
+  # we replace: operator, HMF0, hecke_matrix_field, minimal_hecke_matrix_field, basis_of_plus_subspace
   copypaste/hecke.m
   # we replace: HeckeMatrix1
   copypaste/level.m

@@ -28,6 +28,7 @@ import "../diamond.m" : operator;
 import "../hackobj.m" : HMF0;
 import "../hecke_field.m" : hecke_matrix_field,
                             minimal_hecke_matrix_field;
+import "../hecke.m" : basis_of_plus_subspace;
 // hack ends
 
 debug := false;
@@ -129,6 +130,7 @@ function basis_is_honest(M)
          // (an ambient is automatically honest)
 end function;
 
+/* hack: replaced via import
 // For Fuchsian group Gamma, return a basis matrix for the plus subspace 
 // of HeckeMatrix(Gamma, "Infinity") 
 
@@ -148,6 +150,7 @@ function basis_of_plus_subspace(M)
 
   return plus_basis, minus_basis;
 end function;
+*/
 
 
 // Given matrices B and C specifying complementary row spaces
