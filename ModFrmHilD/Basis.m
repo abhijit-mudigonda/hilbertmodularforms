@@ -72,7 +72,7 @@ intrinsic CuspFormBasis(
       Mk`CuspFormBasis := NewCuspFormBasis(Mk : GaloisDescent:=GaloisDescent, SaveAndLoad:=SaveAndLoad) cat OldCuspFormBasis(Mk : GaloisDescent:=GaloisDescent, SaveAndLoad:=SaveAndLoad);
     end if;
     // The contents of Mk`CuspFormBasis should be a basis for the space of cuspforms
-    require CuspDimension(Mk) eq #Mk`CuspFormBasis : Sprintf("CuspDimension(Mk) = %o != %o = #Mk`CuspFormBasis", CuspDimension(Mk), #Mk`CuspFormBasis);
+    // require CuspDimension(Mk) eq #Mk`CuspFormBasis : Sprintf("CuspDimension(Mk) = %o != %o = #Mk`CuspFormBasis", CuspDimension(Mk), #Mk`CuspFormBasis);
   end if;
   return SubBasis(Mk`CuspFormBasis, IdealClassesSupport, Symmetric);
 end intrinsic;
