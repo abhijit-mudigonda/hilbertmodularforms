@@ -16,7 +16,7 @@ import !"Geometry/ModFrmHil/level.m" : FindGammas;
 import !"Algebra/AlgQuat/enumerate.m" :
              EnumerativeSearchInternal, ReducedBasisInternal;
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
-import "weight_rep.m" : GetOrMakeP1_new, matrix_of_induced_action;
+import "weight_rep.m" : GetOrMakeP1_new, matrix_of_action, matrix_of_induced_action, weight_rep_dim;
 import "ideal_datum.m" : induced_module_mtrxs_of_gens;
 
 forward HeckeMatrix1;
@@ -642,6 +642,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     end if;
 
     Y_U := [];
+    W_dim := weight_rep_dim(weight);
 
     vprintf ModFrmHil: "Computing operator the hard way ...................... ";
     vtime ModFrmHil:
@@ -664,6 +665,8 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
           end if;
           y := Op!(alphas[j]*liftsik*alphas[c]^(-1));
           y, _ := CompleteRelationFromUnit(Gammap_datum, y, weight : IsTrivialCoefficientModule := false);
+          y := ColumnSubmatrix(y, 1, W_dim);
+          y := y * matrix_of_action(alphas[c], weight, Gammap_datum);
           Append(~Gk, y);
         end for;
 
@@ -677,19 +680,14 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     if #Htilde eq 0 then
       return [];
     else
-      // There is some normalization issue that I'm missing.  It should work just taking the 
-      // first column submatrix, but fails in some isolated cases.  Shapiro's lemma
-      // works acceptably for any choice of constant element, so once we find one that 
-      // works, we should be OK...
-      for t := 1 to Ncols(Y_U[1][1][1]) do 
-        M := HorizontalJoin([ HorizontalJoin([ &+[ ColumnSubmatrix(Y_U[i][k][j],t,1) : j in [1..numP1]] : k in [1..#cosets]]) : i in [1..n] ]);
-        MH := Matrix(Htilde)*M;
-        if &and[MH[i] in Domain(mH) : i in [1..#Htilde]] then
-          MM := Matrix([mH(MH[i]) : i in [1..#Htilde]]);
-          return MM;
-        end if;
-      end for;
-      error "No column submatrix worked!?  This is a serious error; please report.";
+      M := HorizontalJoin([ HorizontalJoin([ &+[ Y_U[i][k][j] : j in [1..numP1]] : k in [1..#cosets]]) : i in [1..n] ]);
+      MH := Matrix(Htilde)*M;
+      if &and[MH[i] in Domain(mH) : i in [1..#Htilde]] then
+        MM := Matrix([mH(MH[i]) : i in [1..#Htilde]]);
+        return MM;
+      else
+        error "!?!?!?!?!?  This is a serious error; please report.";
+      end if;
     end if;
   end if;
 
