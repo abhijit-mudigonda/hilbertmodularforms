@@ -121,6 +121,10 @@ function weight_map_arch(b, n : m:=[0 : _ in #n], X:=0)
   return M;
 end function;
 
+function weight_rep_dim(k)
+  return &*[k_i - 1 : k_i in k];
+end function;
+
 function matrix_of_induced_action(b, k, X)
   /*********************************************************************
    * b::AlgAssVOrdElt - An element of a quaternion order O / F. 
@@ -153,7 +157,7 @@ function matrix_of_induced_action(b, k, X)
    * To compute each block, we call weight_map_arch on b'. 
    ***********************************************************************/
 
-  dim_W := &*[k_i - 1 : k_i in k];
+  dim_W := weight_rep_dim(k);
   n := [k_i - 2 : k_i in k];
   m := [-n_i div 2 : n_i in n];
 
