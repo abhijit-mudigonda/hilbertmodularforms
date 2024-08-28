@@ -12,8 +12,7 @@ import !"Geometry/ModFrmHil/proj1.m" : residue_class_reps;
 import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne, LeftIdealGens;
 import "hecke.m" : pseudo_inverse;
 
-// hack: replace HeckeMatrix1 with our own
-import "../level.m" : HeckeMatrix1;
+// hack: replace HeckeMatrix with our own
 import "../weight_rep.m" : Gamma0Cosets, GetOrMakeP1_new;
 
 // hack: converted the following imports to absolute imports
@@ -465,7 +464,8 @@ GetOrMakeP1_new := function(Gamma, N);
 end function;
 */
 
-intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgMatElt
+/* hack: replaced via import
+intrinsic HeckeMatrix(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgMatElt
   {Computes the matrix of the Hecke operator T_ell acting on H^1 of the 
    induced module from level N.}
 
@@ -815,7 +815,6 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgM
   return M, CharacteristicPolynomial(M);
 end intrinsic;
 
-/* hack: replaced via import
 HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL := false);
   // Initialization.
   Gamma_mother := O_mother`FuchsianGroup;

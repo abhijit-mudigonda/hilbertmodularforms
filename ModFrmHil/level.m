@@ -18,6 +18,8 @@ import !"Algebra/AlgQuat/enumerate.m" :
 import !"Geometry/GrpPSL2/GrpPSL2Shim/domain.m" : Vertices;
 import "weight_rep.m" : GetOrMakeP1_new, Gamma0Cosets, RightPermutationActions;
 
+forward HeckeMatrix1;
+
 ConjugationPermutationActions := function(Gamma, N, Z_FN, iota, P1N, cosets, P1Nrep);
   if not assigned Gamma`LevelCPAs_new then
     Gamma`LevelCPAs_new := AssociativeArray();
@@ -214,6 +216,356 @@ end function;
 // Main loop.
 //
 //-------------
+
+intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell : UseAtkinLehner := false) -> AlgMatElt
+  {Computes the matrix of the Hecke operator T_ell acting on H^1 of the 
+   induced module from level N.}
+
+  O := Gamma`BaseRing;
+  B := Algebra(O);
+  F := BaseRing(B);
+  Z_F := MaximalOrder(F);
+  FeqQQ := F cmpeq Rationals();
+
+  elleqoo := ell cmpeq "Infinity";
+
+  if elleqoo and assigned Gamma`HeckeMatrixoo then 
+    for t in Gamma`HeckeMatrixoo do
+      if t[1] eq N then
+        vprint ModFrmHil, 2: "Recalling saved matrix! ...... ";
+        return t[2];
+      end if;
+    end for;
+  end if;
+
+  if not elleqoo and assigned Gamma`HardHeckeMatrices then
+    for t in Gamma`HardHeckeMatrices do
+      if t[1] eq N and t[2] eq ell and t[3] eq UseAtkinLehner then
+        vprint ModFrmHil, 2: "Recalling saved matrix! ...... ";
+        return t[4];
+      end if;
+    end for;
+  end if;
+
+  require not UseAtkinLehner or Valuation(Discriminant(O)*N, ell) gt 0 :
+    "Atkin-Lehner involution only applies when ell divides D*N";
+  if not elleqoo and Valuation(Discriminant(B),ell) gt 0 then
+    require UseAtkinLehner : 
+      "Hecke operator not defined when ell divides D; use Atkin-Lehner operator instead";
+  end if;
+
+  P1N, P1Nrep := GetOrMakeP1_new(Gamma, N);
+
+  if not assigned B`NarrowClassGroup then
+    vprintf ModFrmHil: "Computing narrow class group of F .................... ";
+    vtime ModFrmHil:
+    ClF, mClF := NarrowClassGroup(Z_F);
+
+    B`NarrowClassGroup := ClF;
+    B`NarrowClassGroupMap := mClF;
+  else
+    ClF := B`NarrowClassGroup;
+    mClF := B`NarrowClassGroupMap;
+  end if;
+
+  if not assigned Gamma`ShimFDSidepairsDomain then
+    vprintf ModFrmHil: "Computing group structure (fundamental domain) ....... \n";
+    vtime ModFrmHil:
+    _ := Group(Gamma);
+  end if;
+
+  Z_FN := quo<Z_F | N>;
+  _, iota := ResidueMatrixRing(O, N);
+  cosets := Gamma0Cosets(Gamma, N, Z_FN, iota, P1N, P1Nrep);
+
+  if not assigned O`RightIdealClasses or &or[not assigned Ol`FuchsianGroup : Ol in O`RightIdealClasses[1][3]] then
+    vprintf ModFrmHil: "Computing ideal classes, orders, and groups .......... \n";
+    time0 := Cputime();
+    
+    IndentPush();
+
+    if FeqQQ then
+      O`RightIdealClasses := [* [* [1*Integers()], [rideal<O | 1>], [O], true *] *]; 
+    else
+      _ := RightIdealClasses(O : Strict := true);
+    end if;
+    leftOrders := O`RightIdealClasses[1][3];
+
+    D := Parent(Gamma`ShimFDDisc[1]);
+
+    for ilo := 2 to #leftOrders do 
+      vprintf ModFrmHil: "Computing group (fd) for right ideal class %o ..... \n", ilo;
+
+      time1 := Cputime();
+      
+      Ol := leftOrders[ilo];
+      if Ol eq leftOrders[ilo-1] then
+        Ol`FuchsianGroup := leftOrders[ilo-1]`FuchsianGroup;
+        vprint ModFrmHil: "same!";
+        continue;
+      end if;
+
+      Gammal := FuchsianGroup(Ol : TotallyPositive := true);
+
+      foundgammas := FindGammas(Ol, Gamma);
+      foundgammas := foundgammas[1..Min(#foundgammas,200)];
+      _ := FundamentalDomain(Gammal, D : StartDomain := foundgammas);
+      _ := Group(Gammal);
+
+      vprintf ModFrmHil: "Time: %o \n", Cputime(time1);
+
+      alpha := ElementOfNormMinusOne(Ol);
+    end for;
+
+    IndentPop();
+    vprint ModFrmHil: "Time:", Cputime(time0);
+  end if;
+
+  if FeqQQ then
+    ClFelts := [ClF!0];
+  else
+    ClFelts := [Norm(Is[i])@@mClF : i in [1..#Is]] where Is := O`RightIdealClasses[1][2];
+  end if;
+
+  rids := O`RightIdealClasses[1];
+  assert rids[4];
+
+  ridsbasis := 0;
+  if elleqoo then
+    fakell := 1*Z_F;
+  else
+    fakell := ell;
+  end if;
+
+  for kk := #O`RightIdealClasses to 1 by -1 do
+    if &and[Gcd(Integers()!Norm(O`RightIdealClasses[kk][1][i]),Integers()!Norm(N)) eq 1 : i in [1..#ClFelts]] then
+      ridsbasis := kk;
+      break kk;
+    end if;
+  end for;
+
+  if ridsbasis ne 0 then
+    vprintf ModFrmHil, 3: "Using ridsbasis %o...\n", ridsbasis;
+  end if;
+
+  if ridsbasis eq 0 then 
+    function newIdealClassRep(J, Gamma);
+      Jinv := LeftInverse(J);
+      ZBJ := ZBasis(Jinv);
+
+      D := Parent(Gamma`ShimFDDisc[1]);
+      S := RealPlaces(F);
+      NJ := Norm(J);
+      Lbasis, L := ReducedBasisInternal(ZBJ, B : q0 := D!0);
+      m := 0;
+      SVP := ShortVectorsProcess(L, 1);
+      while true do
+        v := NextVector(SVP);
+        if IsZero(v) then
+          m +:= 1;
+          SVP := ShortVectorsProcess(L, m, (m+1));
+          continue;
+        end if;
+        delta := &+[Round(v[i])*ZBJ[i] : i in [1..4*Degree(F)]];
+        if Gcd(Integers()!Norm(Norm(delta)*NJ),Integers()!Norm(fakell*N)) eq 1 and IsTotallyPositive(Norm(delta)) then
+          return delta*J, delta;
+        end if;
+      end while;
+    end function;
+
+    ridsoldnum := 1;
+
+    ridsold := O`RightIdealClasses[ridsoldnum];
+    ridsnew := ridsold;
+
+    vprintf ModFrmHil: "Ideal class representative not coprime to ell, recomputing using %o... \n", ridsoldnum;
+    for i := 1 to #ClFelts do
+      Jold := ridsold[2][i];
+      Oold := ridsold[3][i];
+      Gammaold := Oold`FuchsianGroup;
+      if i ne 1 and Gcd(Integers()!Norm(Norm(Jold)), Norm(N*fakell)) ne 1 then
+        Jnew, delta := newIdealClassRep(Jold, Gammaold); 
+      else
+        Jnew := Jold;
+        delta := Oold!1;
+      end if;
+
+      if N ne 1*Z_F then
+        // Make sure delta is trivial at N prime to the index.
+        Nprimefacts := [ Nfact[1]^Nfact[2] : Nfact in Factorization(N) | Valuation(Norm(Jold),Nfact[1]) eq 0];
+        if #Nprimefacts ne 0 then
+          Nprime := &*Nprimefacts;
+          _, iotaold := ResidueMatrixRing(Oold, Nprime);
+          P1Nprime, P1Nprimerep := GetOrMakeP1_new(Gamma, Nprime);
+          Z_FNprime := quo<Z_F | Nprime>;
+          cosetsold := Gamma0Cosets(Oold`FuchsianGroup, Nprime, Z_FNprime, iotaold, P1Nprime, P1Nprimerep);
+          iotadelta := iotaold(delta^(-1));
+          v := [iotadelta[2,1], -iotadelta[1,1]];
+          _, v := P1Nprimerep(v, false, false);
+          c := cosetsold[Index(P1Nprime, v)];
+          delta := delta*c^(-1);
+        end if;
+      end if;
+
+      Onew := Order([delta*x*delta^(-1) : x in ZBasis(Oold)]);
+      assert Onew eq LeftOrder(Jnew);
+      assert O eq RightOrder(Jnew);
+      assert Gcd(Integers()!Norm(Discriminant(Onew meet O)/Discriminant(O)), Norm(N*fakell)) eq 1;
+      Gammanew := FuchsianGroup(Onew);
+
+      if assigned Oold`ElementOfNormMinusOne then
+        Onew`ElementOfNormMinusOne := delta*Oold`ElementOfNormMinusOne*delta^(-1);
+      end if;
+
+      Ooldtonew := map<Oold -> Onew | x :-> Onew!(delta*x*delta^(-1)), y :-> Oold!(delta^(-1)*y*delta)>;
+      domainold := Gammaold`ShimFDGens;
+      domainnew := [Ooldtonew(gamma) : gamma in domainold];
+
+      Dold := Parent(Gammaold`ShimFDDisc[1]);
+      z0 := (Gammaold!delta)*Center(Dold);
+
+      c1,r1 := IsometricCircle(Gammaold!domainold[1], Dold);
+      c2,r2 := IsometricCircle(Gammaold!domainold[2], Dold);
+      v0 := InternalIntersection(c1,r1,c2,r2, Dold);
+
+      Dnew := UnitDisc( : Center := z0, Precision := Dold`prec);
+      c1new,r1new := IsometricCircle(Gammanew!domainnew[1], Dnew);
+      c2new,r2new := IsometricCircle(Gammanew!domainnew[2], Dnew);
+      v0new := InternalIntersection(c1new,r1new,c2new,r2new, Dnew);
+      
+      arg := Argument(ComplexValue(v0)) - Argument(ComplexValue(v0new));
+      Dnew := UnitDisc( : Center := z0, Rotation := arg, Precision := Dnew`prec);
+
+      _ := FundamentalDomain(Gammanew, Dnew : StartDomain := domainnew, AssertDomain := true);
+      _ := Group(Gammanew);
+
+      ridsnew[1][i] := Norm(Jnew);
+      ridsnew[2][i] := Jnew;
+      ridsnew[3][i] := Onew;
+    end for;
+
+    ridsnew[3][1]`pMatrixRings := <>;
+    Isupport := &*ridsnew[1];
+    for j := 1 to #O`RightIdealClasses do
+      for pmat in O`RightIdealClasses[j][3][1]`pMatrixRings do
+        existinglevels := [pmat[1] : pmat in ridsnew[3][1]`pMatrixRings];
+        if pmat[1] notin existinglevels and Valuation(Isupport, pmat[1]) eq 0 then
+          Append(~ridsnew[3][1]`pMatrixRings, pmat);
+        end if;
+      end for;
+    end for;
+
+    Append(~O`RightIdealClasses, ridsnew);
+    vprintf ModFrmHil: "Added new right ideal classes, total of %o... \n", #O`RightIdealClasses;
+    ridsbasis := #O`RightIdealClasses;
+
+    inSupport := &or[O`RightIdealClasses[ridsbasis][1][i] + fakell 
+                     ne 1*Z_F : i in [1..#ClFelts]];
+    assert not inSupport;
+  end if;
+
+  if elleqoo then
+    alpha := ElementOfNormMinusOne(O);
+    t := ideal<Z_F | Norm(alpha)>@@mClF;
+  elif UseAtkinLehner and ell + Discriminant(O)*N eq ell then
+    t := Valuation(Discriminant(O)*N,ell)*(ell@@mClF);
+  else
+    t := ell@@mClF;
+  end if;
+
+  inNormSupport := Gcd(Integers()!Norm(&*O`RightIdealClasses[ridsbasis][1]), Integers()!Norm(fakell)) ne 1;
+
+  assert inNormSupport or #O`RightIdealClasses[ridsbasis][3] eq 1 or
+           &*[Discriminant(O`RightIdealClasses[ridsbasis][3][1] meet O`RightIdealClasses[ridsbasis][3][i]) : 
+                                      i in [2..#O`RightIdealClasses[ridsbasis][3]]] + fakell eq 1*Z_F;
+  if not elleqoo and Valuation(Discriminant(B),ell) eq 0 then
+    P1ell, P1ellrep := GetOrMakeP1_new(Gamma, ell);
+    Z_Fell := quo<Z_F | ell>;
+
+    if not inNormSupport then
+      leftOrders := O`RightIdealClasses[ridsbasis][3];
+      M2ell, phiell, mFell := pMatrixRing(leftOrders[1], ell);
+      if Valuation(N,ell) gt 0 then
+        _, iotaell := ResidueMatrixRing(leftOrders[1], ell^Valuation(N,ell));
+      else
+      _, iotaell := ResidueMatrixRing(leftOrders[1], ell);
+      end if;
+      for i := 1 to #leftOrders do
+        if not assigned leftOrders[i]`pMatrixRings then
+          leftOrders[i]`pMatrixRings := <>;
+        end if;
+        _ell := FeqQQ select Generator(ell) else ell;
+        if forall{ pmat : pmat in leftOrders[i]`pMatrixRings | pmat[1] ne _ell } then
+          Append(~leftOrders[i]`pMatrixRings, <_ell, M2ell, phiell, mFell>);
+        end if;
+        ellcosets := Gamma0Cosets(leftOrders[i]`FuchsianGroup, ell, Z_Fell, iotaell, P1ell, P1ellrep);
+      end for;
+    else
+      iotaell := [];
+    end if;
+  else
+    iotaell := [];
+  end if;
+
+  // Complete harmonizing pMatrixRings for level structure.
+  leftOrders := O`RightIdealClasses[ridsbasis][3];
+  assert N + &*O`RightIdealClasses[ridsbasis][1] eq 1*Z_F;
+  for ellq in [pp[1] : pp in Factorization(N)] do
+    P1ellq, P1ellqrep := GetOrMakeP1_new(Gamma, ellq);
+    M2ellq, phiellq, mFellq := pMatrixRing(leftOrders[1], ellq);
+    for i := 1 to #leftOrders do
+      if not assigned leftOrders[i]`pMatrixRings then
+        leftOrders[i]`pMatrixRings := <>;
+      end if;
+      _ellq := FeqQQ select Generator(ellq) else ellq;
+      if forall{ pmat : pmat in leftOrders[i]`pMatrixRings | pmat[1] ne _ellq } then
+        Append(~leftOrders[i]`pMatrixRings, <_ellq, M2ellq, phiellq, mFellq>);
+      end if;
+    end for;
+  end for;
+
+  for i := 1 to #leftOrders do
+    Ol := leftOrders[i];
+    _, iota := ResidueMatrixRing(Ol, N);
+    cosets := Gamma0Cosets(Ol`FuchsianGroup, N, Z_FN, iota, P1N, P1Nrep);
+  end for;
+
+  for i := 1 to #ClFelts do
+    indp := Index(ClFelts, ClFelts[i]);
+    ind := Index(ClFelts, ClFelts[i]+t);
+    if inNormSupport then
+      leftOrder := O`RightIdealClasses[ridsbasis][3][ind];
+      M2ell, phiell, mFell := pMatrixRing(leftOrder, ell);
+      _, iotaell := ResidueMatrixRing(leftOrder, ell);
+    end if;
+    Mblock := HeckeMatrix1(O, N, ell, ind, indp, ridsbasis, iotaell : ellAL := UseAtkinLehner);
+    if Mblock cmpeq [] then
+      // Zero-dimensional space!
+      return Matrix(Rationals(), 0, 0, []), PolynomialRing(Rationals())!0;
+    end if;
+    Z := ZeroMatrix(BaseRing(Mblock), Nrows(Mblock), #ClFelts*Ncols(Mblock));
+    InsertBlock(~Z, Mblock, 1, (ind-1)*Nrows(Mblock)+1);
+    if i eq 1 then
+      M := Z;
+    else
+      M := VerticalJoin(M, Z);
+    end if;
+  end for;
+
+  if elleqoo then
+    if not assigned Gamma`HeckeMatrixoo then
+      Gamma`HeckeMatrixoo := [* *];
+    end if;
+    Append(~Gamma`HeckeMatrixoo, <N, M>);
+  elif UseAtkinLehner or (ell + Discriminant(O)/Discriminant(B)*N eq ell) then
+    if not assigned Gamma`HardHeckeMatrices then
+      Gamma`HardHeckeMatrices := [* *];
+    end if;
+    Append(~Gamma`HardHeckeMatrices, <N, ell, UseAtkinLehner, M>);
+  end if;
+
+  return M, CharacteristicPolynomial(M);
+end intrinsic;
 
 HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell : ellAL := false);
   // Initialization.
