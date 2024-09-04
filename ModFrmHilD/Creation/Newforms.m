@@ -95,7 +95,14 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
   end if;
 
   if GaloisDescent then
-    fn := func<pp|Matrix(HeckeOperator(S, pp))>;
+    fn := function(pp)
+      try
+        return Matrix(HeckeOperator(S, pp));
+      catch e
+        return Matrix(AtkinLehnerOperator(S, pp));
+      end try;
+    end function;
+
     // Tzeta is the matrix of a generator for the Hecke algebra
     // (it has a generator because the Hecke algebra is isomorphic
     // to a number field). 
