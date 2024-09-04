@@ -1,17 +1,17 @@
 intrinsic RestrictionToDiagonal(f::ModFrmHilDElt,M::ModFrmHilDGRng,bb::RngOrdIdl) -> ModFrmElt
   {Given an HMF f of parallel weight k, returns the classical modular curve of weight nk and level obtained from restricting
   the component bb of the HMF to the diagonal.}
-  require #SequenceToSet(Weight(f)) eq 1: "Only defined for parallel weight.";
+  // require #SequenceToSet(Weight(f)) eq 1: "Only defined for parallel weight.";
   F := M`BaseField;
   ZF := Integers(F);
-  C := BaseField(F);
+  C := CoefficientRing(f);
   R<q> := PowerSeriesRing(C);
   restriction := R!0;
   NN := Level(f);
   N := Integers()!(Denominator(NN)^(-1)*Generator((Denominator(NN)*NN) meet Integers()));
   D := Different(ZF);
-  k :=  Weight(f)[1];
-  n := #Weight(f);
+  k :=  Weight(f);
+  k_sum := &+[k_i : k_i in k];
   fbb := f`Components[bb];
   // modForms only accepts integer coefficients
   denom := 1;
@@ -32,8 +32,11 @@ intrinsic RestrictionToDiagonal(f::ModFrmHilDElt,M::ModFrmHilDGRng,bb::RngOrdIdl
     restriction +:= coefficient*q^(j div b);
     prec +:= 1;
   end for;
-  modForms := ModularForms(Gamma0(N),n*k);
-  return modForms!(denom*(restriction +O(q^(prec))));
+  f := restriction + O(q^(prec));
+  return f;
+
+  // modForms := ModularForms(Gamma0(N),k_sum);
+  // return modForms!(denom*(restriction +O(q^(prec))));
 end intrinsic;
 
 intrinsic PositiveElementsOfTrace(aa::RngOrdFracIdl, t::RngIntElt) -> SeqEnum[RngOrdFracIdl]
