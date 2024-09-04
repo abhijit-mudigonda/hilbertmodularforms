@@ -719,6 +719,8 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
       if not IsLevelOne then
         alphas := [eichlerize(lambda, Gammap_datum) 
                 : lambda in lambdas];
+      else
+        alphas := lambdas;
       end if;
     else // Go for the fast code.
       lambda := LeftIdealGens(Gamma, ell, JJp, 1, O, Op, iotaell);
