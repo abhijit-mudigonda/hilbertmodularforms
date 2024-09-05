@@ -129,7 +129,8 @@ end function;
 // TODO abhijitm eventually this should be a parameter
 // that the user can set on instantiation of ModFrmHil
 function m_from_k(k)
-  return [(2 - k_i) div 2 : k_i in k];
+  k_0 := Max(k);
+  return [(k_0 - k_i) div 2 : k_i in k];
 end function;
 
 function n_from_k(k)
