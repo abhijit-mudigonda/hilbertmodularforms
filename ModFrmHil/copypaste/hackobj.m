@@ -1002,6 +1002,19 @@ function qa_discriminant(F, N, Nnew, k, chi)
   n := Degree(F);
   if IsEven(n) then  
     return true, true, 1*Integers(F);
+    
+    // TODO abhijitm this is temporary for testing, to force
+    // usage of the indefinite code even in cases where the definite
+    // method is possible.
+    facts := Factorization(Nnew);
+    // check facts are sorted
+    norms := [Norm(t[1]) : t in facts]; 
+    assert norms eq Sort(norms);
+    if exists(P){t[1] : t in facts | t[2] eq 1} then
+      return true, false, P;
+    else
+      return true, true, 1*Integers(F);
+    end if;
   else
     // TODO abhijitm this is temporary for testing, to force
     // usage of the indefinite code even in cases where the definite
