@@ -20,7 +20,8 @@ declare attributes IdealDatum:
   ResidueMap,
   CosetReps,
   CosetRepsByP1,
-  InducedModuleMtrxs;
+  InducedModuleMtrxs,
+  H1s;
 
 forward Gamma0Cosets;
 
@@ -77,6 +78,7 @@ intrinsic cIdealDatum(Gamma::GrpPSL2, I::RngOrdIdl : chi:=1) -> IdealDatum
   assert #X`CosetRepsByP1 eq #X`P1Elements;
 
   X`InducedModuleMtrxs := AssociativeArray();
+  X`H1s := AssociativeArray();
 
   return X;
 end intrinsic;
