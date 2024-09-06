@@ -16,9 +16,10 @@ intrinsic MagmaNewformDecomposition(Mk::ModFrmHilD) -> List
     vprintf HilbertModularForms: "new ";
     New := NewSubspace(MF);
     // FIXME: this prevents a downstream bug in Magma related to descending to the minimal_hecke_matrix_field
-    SetRationalBasis(New);
+    // SetRationalBasis(New);
     vprintf HilbertModularForms: "hecke character subspace ";
-    S := HeckeCharacterSubspace(New, Character(Mk));
+    S := New;
+    // S := HeckeCharacterSubspace(New, Character(Mk));
     vprintf HilbertModularForms: "decomposition...";
     vtime HilbertModularForms:
     Mk`MagmaNewformDecomposition := [<elt, Character(Mk)> : elt in NewformDecomposition(S)];
@@ -130,6 +131,7 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
   vtime HilbertModularForms:
   for pp in primes do
     coeffs[pp] :=  fn(pp);
+    // print "pp", IdealOneLine(pp), "coeff", coeffs[pp];
   end for;
   ZF := Integers(Mk);
 

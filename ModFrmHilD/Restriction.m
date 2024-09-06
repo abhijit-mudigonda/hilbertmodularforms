@@ -32,11 +32,11 @@ intrinsic RestrictionToDiagonal(f::ModFrmHilDElt,M::ModFrmHilDGRng,bb::RngOrdIdl
     restriction +:= coefficient*q^(j div b);
     prec +:= 1;
   end for;
-  f := restriction + O(q^(prec));
-  return f;
+  // f := restriction + O(q^(prec));
+  // return f;
 
-  // modForms := ModularForms(Gamma0(N),k_sum);
-  // return modForms!(denom*(restriction +O(q^(prec))));
+  modForms := ModularForms(Gamma0(N),k_sum);
+  return modForms!(denom*(restriction +O(q^(prec))));
 end intrinsic;
 
 intrinsic PositiveElementsOfTrace(aa::RngOrdFracIdl, t::RngIntElt) -> SeqEnum[RngOrdFracIdl]
