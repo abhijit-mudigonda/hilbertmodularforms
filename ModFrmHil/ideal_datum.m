@@ -201,6 +201,7 @@ function induced_module_mtrxs_of_gens(X, k)
     return X`InducedModuleMtrxs[k];
   end if;
 
+  t := Cputime();
   G, _, m := Group(X`FuchsianGroup);
   gens := [m(G.i) : i in [1 .. #Generators(G)]];
 
@@ -211,5 +212,6 @@ function induced_module_mtrxs_of_gens(X, k)
   end for;
 
   X`InducedModuleMtrxs[k] := Ms;
+  print "induced_module_mtrxs_of_gens time", Cputime(t);
   return Ms;
 end function;

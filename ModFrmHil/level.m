@@ -100,24 +100,35 @@ function InducedH1Internal(X, k);
     
   Gamma := X`FuchsianGroup;
   U, _, m := Group(Gamma);
+  t := Cputime();
   d := #Generators(U);
+  print "\ngenerators time", Cputime(t);
   gammagens := [m(U.i) : i in [1..d]];
 
   mtrxs_of_gens := induced_module_mtrxs_of_gens(X, k);
+  t := Cputime();
   R := HorizontalJoin(
     [InducedRelation(Eltseq(LHS(rel)), mtrxs_of_gens) : rel in Relations(U)]);
+  print "InducedRelation time", Cputime(t);
+  t := Cputime();
   Z := Kernel(R);
+  print "Kernel time: ", Cputime(t);
 
   I := IdentitySparseMatrix(BaseRing(mtrxs_of_gens[1]), Nrows(mtrxs_of_gens[1]));
   // the keys of mtrxs_of_gens are [-t, -(t-1), .., -1, 1, ..., t],
   // and the negative keys store inverses of generators. We only want the
   // generators themselves here. 
   coB := HorizontalJoin([mtrxs_of_gens[i] - I : i in [1 .. (#mtrxs_of_gens div 2)]]);
+  t := Cputime();
   coB := [Z!coB[i] : i in [1..Nrows(coB)]];
   ZcoB := sub<Z | coB>;
+  print "sub time", Cputime(t);
 
+  t := Cputime();
   H, mH := quo<Z | ZcoB>;
+  print "quot time", Cputime(t);
 
+  t := Cputime();
   ZB := Basis(Z);
   S := EchelonForm(Matrix(coB));
   RemoveZeroRows(~S);
@@ -125,6 +136,7 @@ function InducedH1Internal(X, k);
   assert #SequenceToSet(piv) eq #piv;
   Htilde := [ZB[i] : i in [1..#ZB] | 
                         Min(Support(ZB[i])) notin piv];
+  print "cleanup time", Cputime(t);
   if #Htilde gt 0 then
     mHtilde := Matrix([mH(h) : h in Htilde]);
     assert Abs(Norm(Determinant(mHtilde))) eq 1;
@@ -137,8 +149,12 @@ function InducedH1Internal(X, k);
 end function;
 
 function InducedH1(X, Xp, k);
+  t := Cputime();
   Htilde, mH := InducedH1Internal(X, k);
+  print "InducedH1Internal time", Cputime(t);
+  t := Cputime();
   Htildep, mHp := InducedH1Internal(Xp, k);
+  print "second InducedH1Internal time", Cputime(t);
 
   return Htildep, mH;
 end function;
@@ -743,6 +759,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   vprintf ModFrmHil: "Computing conjugation actions ........................ ";
   vtime ModFrmHil:
 
+  t := Cputime();
   // if level 1 and parallel weight 2, the coefficient module is trivial
   // and there's no Zp action
   if IsLevelOne then
@@ -753,6 +770,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   else
     Zp := [matrix_of_induced_action(alpha, weight, Gamma_datum) : alpha in alphas];
   end if;
+  print "computing matrices of induced action", Cputime(t);
 
   Y_Op := [];
   X := [];
@@ -792,21 +810,31 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
 
 
   Y_U := [];
-  vprintf ModFrmHil: "Reducing %4o units of Gamma ......................... ", n*numP1;
-  vtime ModFrmHil:
+  vprintf ModFrmHil: "Reducing %4o units of Gamma ......................... \n", n*numP1;
+  s := Cputime();
+
+  crfu_time := 0.0;
+  zp_time := 0.0;
   for i in [1..n] do
     G := [];
 
     for j in [1..numP1] do
+      t := Cputime();
       y := CompleteRelationFromUnit(Gammap_datum, Y_Op[i][j], weight : IsTrivialCoefficientModule:=IsTrivialCoefficientModule);
+      crfu_time +:= Cputime(t);
       if not IsTrivialCoefficientModule then
+        t := Cputime();
         y := y*Zp[X[i][j]];
+        zp_time +:= Cputime(t);
       end if;
       Append(~G, y);
     end for;
     Append(~Y_U, G);
   end for;
 
+  print "crfu_time", crfu_time;
+  print "zp_time", zp_time;
+  print "Time: ", Cputime(s);
 
   vprintf ModFrmHil: "Computing H1 (coinduced) ............................. ";
   vtime ModFrmHil:
