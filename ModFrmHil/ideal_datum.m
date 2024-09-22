@@ -23,6 +23,8 @@ declare attributes IdealDatum:
   InducedModuleMtrxs,
   H1s;
 
+declare attributes GrpPSL2 : ideal_data;
+
 forward Gamma0Cosets;
 
 intrinsic cIdealDatum(Gamma::GrpPSL2, I::RngOrdIdl : chi:=1) -> IdealDatum
@@ -35,6 +37,12 @@ intrinsic cIdealDatum(Gamma::GrpPSL2, I::RngOrdIdl : chi:=1) -> IdealDatum
     Constructor.
   }
   
+  if not assigned Gamma`ideal_data then
+    Gamma`ideal_data := AssociativeArray();
+  elif IsDefined(Gamma`ideal_data, <I, chi>) then
+    return Gamma`ideal_data[<I, chi>];
+  end if;
+
   X := New(IdealDatum);
   X`FuchsianGroup := Gamma;
   O := QuaternionOrder(Gamma);
@@ -80,6 +88,7 @@ intrinsic cIdealDatum(Gamma::GrpPSL2, I::RngOrdIdl : chi:=1) -> IdealDatum
   X`InducedModuleMtrxs := AssociativeArray();
   X`H1s := AssociativeArray();
 
+  Gamma`ideal_data[<I, chi>] := X;
   return X;
 end intrinsic;
 
