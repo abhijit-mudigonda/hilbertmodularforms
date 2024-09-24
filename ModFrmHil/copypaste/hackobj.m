@@ -1019,7 +1019,7 @@ function qa_discriminant(F, N, Nnew, k, chi)
     // TODO abhijitm this is temporary for testing, to force
     // usage of the indefinite code even in cases where the definite
     // method is possible.
-    return true, false, 1*Integers(F);
+    // return true, false, 1*Integers(F);
     facts := Factorization(Nnew);
     // check facts are sorted
     norms := [Norm(t[1]) : t in facts]; 
