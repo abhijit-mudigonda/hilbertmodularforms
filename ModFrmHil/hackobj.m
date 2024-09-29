@@ -3,7 +3,7 @@ freeze;
 
 forward HMF0;
 
-import !"Geometry/ModFrmHil/hackobj.m" : HMF;
+import "copypaste/hackobj.m" : HMF;
 
 /**************** New Attributes **********************/
 
@@ -60,9 +60,12 @@ intrinsic HilbertCuspForms(F::FldNum, N::RngOrdIdl, chi::GrpHeckeElt,
          "The base field F must be totally real";
   require #k eq Degree(F) :
          "The weight k should be a sequence of d integers, where d is the degree of the field";
-  // TODO : Do we still want to leave this?
-  require IsArithmeticWeight(F, k) :
-         "The weight should be a sequence of integers that are all at least 2, and all of the same parity";
+  // TODO abhijitm this condition can be removed with a little bit of work
+  if IsEven(Degree(F)) then 
+    require IsArithmeticWeight(F, k) :
+           "For even degree fields, the weight should be a sequence of integers that are\
+               all at least 2, and all of the same parity";
+  end if;
   require IsCompatibleWeight(chi, k) :
          "The weight should be compatible with the character.";
 

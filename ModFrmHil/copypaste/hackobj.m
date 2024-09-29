@@ -505,7 +505,7 @@ if Chi cmpeq 1 then
   end if;
 end if;
 
-  bool, _, _, C := IsArithmeticWeight(F, k); assert bool; // already checked
+  _, _, _, C := IsArithmeticWeight(F, k);
 
   M := HMF0(F, N, 1*Integers(F), Chi, k, C);
 
