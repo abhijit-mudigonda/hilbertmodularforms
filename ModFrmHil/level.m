@@ -174,9 +174,12 @@ end function;
 //
 //-------------
 
-intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := false) -> AlgMatElt
-  {Computes the matrix of the Hecke operator T_ell acting on H^1 of the 
-   induced module from level N.}
+intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := false) -> AlgMatElt, Any
+  {Computes the matrix of the Hecke operator T_ell acting on H^1 of the induced module from level N. 
+   In the Hecke operator case, also returns the norm ell element lambda used to compute the matrix.
+   These are the analogues of  (1 0 \\ 0 ell) in the classical theory, and are used if the 
+   weight is nonparitious.
+  }
 
   O := Gamma`BaseRing;
   B := Algebra(O);
@@ -473,7 +476,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := f
       M2ell, phiell, mFell := pMatrixRing(leftOrder, ell);
       _, iotaell := ResidueMatrixRing(leftOrder, ell);
     end if;
-    Mblock := HeckeMatrix1(O, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := UseAtkinLehner);
+    Mblock, lambda := HeckeMatrix1(O, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := UseAtkinLehner);
     if Mblock cmpeq [] then
       // Zero-dimensional space!
       return Matrix(Rationals(), 0, 0, []), PolynomialRing(Rationals())!0;
@@ -680,13 +683,17 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     Htilde, mH := InducedH1(Gamma_datum, Gammap_datum, weight);
 
     if #Htilde eq 0 then
-      return [];
+      return [], _;
     else
       M := HorizontalJoin([ HorizontalJoin([ &+[ Y_U[i][k][j] : j in [1..numP1]] : k in [1..#cosets]]) : i in [1..n] ]);
       MH := Matrix(Htilde)*M;
       if &and[MH[i] in Domain(mH) : i in [1..#Htilde]] then
         MM := Matrix([mH(MH[i]) : i in [1..#Htilde]]);
-        return MM;
+        if ellU then
+          return MM, lambda;
+        else
+          return MM, _;
+        end if;
       else
         error "!?!?!?!?!?  This is a serious error; please report.";
       end if;
@@ -813,11 +820,15 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   Htilde, mH := InducedH1(Gamma_datum, Gammap_datum, weight);
   
   if #Htilde eq 0 then
-    return [];
+    return [], _;
   else
     M := HorizontalJoin([ &+[ Y_U[i][j] : j in [1..numP1]] : i in [1..n] ]);
     MH := Matrix(Htilde)*M;
     MM := Matrix([mH(MH[i]) : i in [1..#Htilde]]);
-    return MM;
+    if not (ellAL or inNormSupport) then
+      return MM, lambda;
+    else
+      return MM, _;
+    end if;
   end if;
 end function;
