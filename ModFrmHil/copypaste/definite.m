@@ -375,7 +375,7 @@ intrinsic IsArithmeticWeight(F::Fld, k::SeqEnum[RngIntElt] : CentralCharacter:="
       not forall{m: m in k| IsOdd(m) and (m ge 2)} 
    then
      // TODO abhijitm this is terrible practice
-     return false, n, _, C; 
+     return false, _, n, C; 
    end if;
    m := [Integers()| (C - n[i])/2 : i in [1..#k]];
 
