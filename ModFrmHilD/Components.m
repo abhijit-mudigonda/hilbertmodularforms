@@ -503,7 +503,7 @@ precision instead.}
     // Gather exponents and coefficients
     precs := [p: p in M`PrecisionsByComponent[bb] | p le prec];
     exps := [];
-    coeffs := [];
+    coeffs := [CoefficientRing(Mk) | ];
     for p in precs do
         for nu->exp in M`FunDomainRepsOfPrec[bb][p] do
             b, coeff := IsDefined(coeff_array, nu);
