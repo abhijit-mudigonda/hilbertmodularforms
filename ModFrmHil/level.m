@@ -507,7 +507,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := f
     Gamma`HardHeckeMatrices_new[<N, weight, chi, ell, UseAtkinLehner>] := M;
   end if;
 
-  return M, CharacteristicPolynomial(M);
+  return M, Norm(lambda);
 end intrinsic;
 
 HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := false);

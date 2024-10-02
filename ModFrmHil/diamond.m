@@ -41,7 +41,12 @@ function operator(M, p, op : hack:=true)
   // Check if cached on M
   cached, Tp := IsDefined(eval "M`"*op, p);
   if cached then
-    return Tp;
+    if op eq "Hecke" then
+      Tp, p_rep := Explode(Tp);
+      return Tp, p_rep;
+    else
+      return Tp;
+    end if;
   end if;
 
   if Dimension(M : UseFormula:=false) eq 0 then // gets cached dimension or computes the space
@@ -53,7 +58,7 @@ function operator(M, p, op : hack:=true)
     // (TO DO: is this always better than getting it directly from the big operator?)
     bm := M`basis_matrix_wrt_ambient;
     bmi := M`basis_matrix_wrt_ambient_inv;
-    Tp_amb := operator(M`Ambient, p, op);
+    Tp_amb, p_rep := operator(M`Ambient, p, op);
     Tp_amb := ChangeRing(Tp_amb, BaseRing(bm));
     Tp := bm * Tp_amb * bmi;
 
@@ -100,6 +105,8 @@ function operator(M, p, op : hack:=true)
 	end case;
     end if;
     Tp := restriction(M, Tp_big);
+    // TODO abhijitm, this never gets used, it's just to assign something
+    p_rep := 1;
 
   else // indefinite quat order
 
@@ -116,7 +123,7 @@ function operator(M, p, op : hack:=true)
 
     Gamma := FuchsianGroup(QuaternionOrder(M));
     case op:
-      when "Hecke" : Tp_big := HeckeMatrix2(Gamma, N, p, Weight(M), DirichletCharacter(M));
+      when "Hecke" : Tp_big, p_rep := HeckeMatrix2(Gamma, N, p, Weight(M), DirichletCharacter(M));
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
@@ -136,6 +143,7 @@ function operator(M, p, op : hack:=true)
          "The hecke_matrix_field seems to be wrong!\n" * please_report;
   end if;
 
+  // TODO abhijitm don't change debug
   if debug then
     // check commutativity
     bad := Level(M) / NewLevel(M);
@@ -154,7 +162,7 @@ function operator(M, p, op : hack:=true)
 //if not (IsDefinite(M) and not assigned M`Ambient) then
   if hack then
     case op:
-      when "Hecke"    : M`Hecke[p]    := Tp;
+      when "Hecke"    : M`Hecke[p]    := <Tp, p_rep>;
       when "AL"       : M`AL[p]       := Tp;
       when "DegDown1" : M`DegDown1[p] := Tp;
       when "DegDownp" : M`DegDownp[p] := Tp;
@@ -162,7 +170,7 @@ function operator(M, p, op : hack:=true)
     end case;
   else
     case op:
-      when "Hecke"    : M`Hecke[p]    := Tp;
+      when "Hecke"    : M`Hecke[p]    := <Tp, p_rep>;
       when "AL"       : M`AL[p]       := Tp;
       when "DegDown1" : M`DegDown1[p] := Tp;
       when "DegDownp" : M`DegDownp[p] := Tp;
@@ -170,7 +178,7 @@ function operator(M, p, op : hack:=true)
   end if;
 //end if;
 
-  return Tp;
+  return Tp, p_rep;
 end function;
 
 // we compute a Hecke operator to force magma to compute the space
