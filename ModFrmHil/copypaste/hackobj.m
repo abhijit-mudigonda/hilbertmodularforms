@@ -166,8 +166,10 @@ declare attributes ModFrmHil :
 
   weight_dimension,          // The dimension of the weight space.
 
-  weight_base_field;         // The base field of the weight representation,
+  weight_base_field,         // The base field of the weight representation,
                              // or Rationals() for parallel weight 2
+  rational_change_of_basis_mtrx, // change of basis matrix to rational basis, only used for nonparitious weight
+  rational_change_of_basis_mtrx_inv;
 
 
 /********************    Hacking for ModFrmHil    *********************/

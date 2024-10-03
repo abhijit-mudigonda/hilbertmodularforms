@@ -362,7 +362,7 @@ function operator(M, p, op : hack:=true)
     bool, Tp := CanChangeRing(Tp, M`hecke_matrix_field);
     error if not bool,
          "The hecke_matrix_field seems to be wrong!\n" * please_report;
-  end if;
+    end if;
 
   // TODO abhijitm don't change debug
   if debug then
@@ -397,8 +397,6 @@ function operator(M, p, op : hack:=true)
       when "DegDownp" : M`DegDownp[p] := Tp;
     end case;
   end if;
-//end if;
-
   return Tp, p_rep;
 end function;
 

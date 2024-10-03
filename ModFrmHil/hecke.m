@@ -42,9 +42,6 @@ function basis_of_plus_subspace(M)
   assert Nrows(plus_basis) + Nrows(minus_basis) eq Nrows(T);
   assert Nrows(plus_basis) eq Nrows(minus_basis);
 
-  plus_basis := ChangeRing(plus_basis, FieldOfFractions(BaseRing(plus_basis)));
-  minus_basis := ChangeRing(minus_basis, FieldOfFractions(BaseRing(minus_basis)));
-  
   return plus_basis, minus_basis;
 end function;
 

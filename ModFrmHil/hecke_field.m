@@ -55,6 +55,10 @@ function hecke_matrix_field(M : hack := true)
     if is_paritious(Weight(M)) then
 	    return TopAmbient(M)`weight_base_field;
     else
+      if M ne TopAmbient(M) then
+        return TopAmbient(M)`hecke_matrix_field;
+      end if;
+
       // if the weight is nonparitious, the Hecke matrices on the entire
       // H1 will be over the weight base field but the + and - subspaces
       // will be defined over a quadratic extension
@@ -83,6 +87,7 @@ function hecke_matrix_field(M : hack := true)
         // relative extension here instead of an absolute one...
         K := ext<K | x^2 - z>;
       end if;
+      M`hecke_matrix_field := K;
       return K;
     end if;
 	  // hack ends

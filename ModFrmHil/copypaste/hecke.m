@@ -239,8 +239,11 @@ function basis_matrix(M)
             for pp in Factorization(NewLevel(M)/NewLevel(MA)) do
                 // An oldspace from pp only makes sense if the nebentypus is also "old" at pp
                 if IsOne(GCD(pp[1], Conductor(DirichletCharacter(M)))) then
-                    new, old := NewAndOldSubspacesUsingHeckeAction(MA, pp[1]);
+                  new, old := NewAndOldSubspacesUsingHeckeAction(MA, pp[1]);
+                  assert IsIsomorphic(BaseField(new), BaseField(V));
+                  new := sub<V | [V!w : w in Basis(new)]>; 
                   V meet:= new;
+
                   C +:= old;
                 end if;
             end for;
@@ -251,6 +254,8 @@ function basis_matrix(M)
         M`basis_matrix_wrt_ambient := bm_new;
         M`basis_matrix_wrt_ambient_inv := pseudo_inverse(bm_new, bm_old);
         M`basis_matrix := M`basis_matrix_wrt_ambient * MA`basis_matrix;
+
+
         M`basis_matrix_inv := MA`basis_matrix_inv * M`basis_matrix_wrt_ambient_inv;
         M`basis_is_honest := useIP;
 /*
@@ -460,6 +465,7 @@ intrinsic HeckeOperator(M::ModFrmHil, p::Any) -> Mtrx
   require bool : err;
  
   matrix, rep := operator(M, p, "Hecke");
+
   return matrix, rep;
 end intrinsic;
 
@@ -792,7 +798,6 @@ function hecke_algebra(M : generator:=false, minimal:=true)
   end if;
 
   if not use_cached_hecke_algebra then
-
     K := BaseRing(M);
     N := Level(M);
     d := Dimension(M);
@@ -832,6 +837,7 @@ function hecke_algebra(M : generator:=false, minimal:=true)
       Prune(~primes_n);
       heckes := [HeckeOperator(M, p) : p in primes_used];
       F := BaseRing(Universe(heckes));
+
       T := MatrixAlgebra< F, d | heckes >;
       i +:= 1;
       if i mod 3 eq 1 or Ngens(T) eq 1 then
@@ -887,7 +893,6 @@ end if;
                         [Norm(P) : P in primes_used];
 
     M`hecke_algebra := [* T, primes_used, Vector(F,vec), U, P *];
-
   end if; // not use_cached_hecke_algebra
 
   if generator and #M`hecke_algebra eq 5 then
@@ -999,75 +1004,80 @@ end function;
 
 function rational_basis(M)
 
-  vprint ModFrmHil: "Computing enough Hecke operators to generate the Hecke algebra"; 
-  time0 := Cputime();
-  IndentPush();
-  T, _, v, TP, P := Explode(hecke_algebra(M));
-  IndentPop();
-  vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
+  if not assigned M`rational_change_of_basis_mtrx then
+    vprint ModFrmHil: "Computing enough Hecke operators to generate the Hecke algebra"; 
+    time0 := Cputime();
+    IndentPush();
+    T, _, v, TP, P := Explode(hecke_algebra(M));
+    IndentPop();
+    vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
 
-  dim := Dimension(M);
-  k, res := ResidueClassField(P); // we can't be over Q here? otherwise this will fail!
-  vP := Vector(k, dim, [res(a) : a in Eltseq(v)]);
-  Tgens := GeneratorsSequence(T);
-  TPgens := GeneratorsSequence(TP);
-assert TPgens eq [Matrix(k, dim, [res(a) : a in Eltseq(t)]) : t in Tgens];
+    dim := Dimension(M);
+    k, res := ResidueClassField(P); // we can't be over Q here? otherwise this will fail!
+    vP := Vector(k, dim, [res(a) : a in Eltseq(v)]);
+    Tgens := GeneratorsSequence(T);
+    TPgens := GeneratorsSequence(TP);
+    assert TPgens eq [Matrix(k, dim, [res(a) : a in Eltseq(t)]) : t in Tgens];
 
-  // Now implicitly compute a rational basis of T, collecting the 
-  // corresponding images of v and checking their independence mod P 
-  // (note: we know that v works)
-  vprintf ModFrmHil, 2: "Now choosing the rational basis: ";
-  Pol := PolynomialRing(BaseField(M), #Tgens);
-  V := Parent(v); 
-  VP := Parent(vP);
-  bas := [v];
-  basP := [vP];
-  wP := vP;
-  WP := sub< VP | vP >;
-/*
-  // Optional: first find the orbit under the first generator of T
-  // (probably a bad idea; will tend to put the first generator 
-  // in rational canonical form, but make the others Heckes bad)
-  w := v;
-  vtime ModFrmHil, 2:
-  for i := 1 to dim-1 do
-    w := w*Tgens[1];
-    wP := wP*TPgens[1];
-    Include(~WP, wP, ~new);
-    if new then
-      vprintf ModFrmHil, 2: ".";
-      Append(~bas, w);
-      Append(~basP, wP);
-    else
-      break i;
-    end if;
-  end for;
-*/
-  // Now use each of the generators in turn, until we reach full dim
-  i := 0;
-  vtime ModFrmHil, 2:
-  while #bas lt dim do
-    i := (i lt #Tgens) select i+1 else 1;
-    vprintf ModFrmHil, 2: "%o", i;
-    for j := 1 to #bas do 
-      wP := basP[j] * TPgens[i];
+    // Now implicitly compute a rational basis of T, collecting the 
+    // corresponding images of v and checking their independence mod P 
+    // (note: we know that v works)
+    vprintf ModFrmHil, 2: "Now choosing the rational basis: ";
+    Pol := PolynomialRing(BaseField(M), #Tgens);
+    V := Parent(v); 
+    VP := Parent(vP);
+    bas := [v];
+    basP := [vP];
+    wP := vP;
+    WP := sub< VP | vP >;
+    /*
+    // Optional: first find the orbit under the first generator of T
+    // (probably a bad idea; will tend to put the first generator 
+    // in rational canonical form, but make the others Heckes bad)
+    w := v;
+    vtime ModFrmHil, 2:
+    for i := 1 to dim-1 do
+      w := w*Tgens[1];
+      wP := wP*TPgens[1];
       Include(~WP, wP, ~new);
       if new then
         vprintf ModFrmHil, 2: ".";
-        w := bas[j] * Tgens[i];
         Append(~bas, w);
         Append(~basP, wP);
-        if #bas eq dim then
-          break;
-        end if;
+      else
+        break i;
       end if;
     end for;
-  end while;
+    */
+    // Now use each of the generators in turn, until we reach full dim
+    i := 0;
+    vtime ModFrmHil, 2:
+    while #bas lt dim do
+      i := (i lt #Tgens) select i+1 else 1;
+      vprintf ModFrmHil, 2: "%o", i;
+      for j := 1 to #bas do 
+        wP := basP[j] * TPgens[i];
+        Include(~WP, wP, ~new);
+        if new then
+          vprintf ModFrmHil, 2: ".";
+          w := bas[j] * Tgens[i];
+          Append(~bas, w);
+          Append(~basP, wP);
+          if #bas eq dim then
+            break;
+          end if;
+        end if;
+      end for;
+    end while;
 
-  return Matrix(bas);
+    cob := Matrix(bas);
+    M`rational_change_of_basis_mtrx := cob;
+    M`rational_change_of_basis_mtrx_inv := cob^-1;
+  end if;
+  return M`rational_change_of_basis_mtrx, M`rational_change_of_basis_mtrx_inv;
 end function;
 
-intrinsic SetRationalBasis(M::ModFrmHil)
+intrinsic SetRationalBasis2(M::ModFrmHil)
 {For a space M of Hilbert modular forms over a number field K, this
  resets the basis of the space to be such that the Hecke operators are
  matrices with entries in the smallest field possible.  (In parallel 
@@ -1084,7 +1094,7 @@ intrinsic SetRationalBasis(M::ModFrmHil)
   end if;
 
   // Check if M already has a rational basis
-  if assigned M`hecke_matrix_field then
+  if assigned M`hecke_matrix_field and M`hecke_matrix_field_is_minimal then
     // coerce cached Hecke if necessary
     H := M`hecke_matrix_field;
     for P in Keys(M`Hecke) do 
@@ -1111,11 +1121,12 @@ intrinsic SetRationalBasis(M::ModFrmHil)
 
   vprint ModFrmHil: "Choosing \'rational\' basis for space of dimension", Dimension(M); 
   IndentPush(); time0 := Cputime();
-  cob := rational_basis(M);
+  cob, cob_inv := rational_basis(M);
   IndentPop(); vprint ModFrmHil: "Time:", Cputime(time0);
   vprintf ModFrmHil: "Inverting change of basis matrix: "; 
   vtime ModFrmHil:
-  cob_inv := cob^-1;
+  assert IsSubfield(BaseRing(cob), BaseRing(M`basis_matrix));
+  assert IsSubfield(BaseRing(cob_inv), BaseRing(M`basis_matrix_inv));
   M`basis_matrix := cob * M`basis_matrix;
   M`basis_matrix_inv := M`basis_matrix_inv * cob_inv;
   if assigned M`basis_matrix_wrt_ambient then
@@ -2340,6 +2351,12 @@ The routine will terminate as soon as any of the following hold:
       mu := SquarefreePart(mu); // = the min poly
       mu := PolynomialRing(FF)! mu;
       T := HeckeOperator(M, P);
+
+      // these two fields should be the same, this is just to remind Magma
+      // that they are 
+      //
+      // TODO abhijitm do you need to strong coerce here?
+      assert IsSubfield(BaseRing(T), FF);
       T := MatrixAlgebra(FF,Nrows(T))! T;
 
       vprintf ModFrmHil, 2: "[OldAndNew] Evaluating minimal polynomial: "; 

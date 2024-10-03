@@ -4,10 +4,11 @@ import !"Geometry/ModFrmHil/hecke.m" :
   NewformsOfDegree1Implemented,
   basis_is_honest,
   get_red_vector,
-  hecke_algebra,
   pseudo_inverse,
   random_large_split_prime,
   reduction;
+
+import "copypaste/hecke.m" : hecke_algebra;
 
 import !"Geometry/ModFrmHil/hackobj.m" :
   Ambient,
@@ -21,6 +22,7 @@ import "hecke_field.m" :
   hecke_matrix_field,
   minimal_hecke_matrix_field;
 
+import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne;
 
 forward WeightRepresentationFiniteField;
 
@@ -474,6 +476,11 @@ that are irreducible as Hecke modules, and returns this list of new spaces }
         end if;
         N`Dimension := Nrows(kmat);
         if assigned M`basis_matrix_wrt_ambient then
+          // these two fields should be the same, this is just to remind Magma
+          // that they are 
+          //
+          // TODO abhijitm do you need to strong coerce here?
+          assert IsSubfield(BaseRing(kmat), BaseRing(M`basis_matrix_wrt_ambient));
           N`basis_matrix_wrt_ambient := ChangeRing(kmat, BaseRing(A)) * A
                                                    where A is M`basis_matrix_wrt_ambient;
           N`basis_matrix_wrt_ambient_inv := Ai * ChangeRing(pseudo_inv, BaseRing(Ai))
@@ -579,7 +586,7 @@ if METHOD lt 3 then
     // Old way: determine the Hecke algebra of this newform space
 
     if hack then
-      SetRationalBasis(M);
+      SetRationalBasis2(M);
     end if;
     T, _, _, _, _, t := Explode(hecke_algebra(M : generator));
 
@@ -596,7 +603,7 @@ if METHOD lt 3 then
       assert t_K eq ChangeRing(t, M`minimal_hecke_field_emb);
       chi := CharacteristicPolynomial(t);
       // the descent below cant lead to wrong results
-      // chi := ChangeRing(chi, minimal_hecke_matrix_field(M)); // decomposition over this field
+      chi := ChangeRing(chi, minimal_hecke_matrix_field(M)); // decomposition over this field
     end if;
     require IsIrreducible(chi) :
          "The space M is not an irreducible module under the Hecke action";
