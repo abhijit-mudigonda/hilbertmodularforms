@@ -165,7 +165,28 @@ function eichlerize(alpha, X)
   _, v := X`P1Rep(v, false, false);
   c := X`CosetReps[Index(X`P1Elements, v)];
   // replace alpha with c * alpha which now lives in O_o(N)
-  return c * alpha;
+  return c * alpha, c;
+end function;
+
+function smart_matrix_of_induced_action(gamma, lambda, ellcoset, weight, X)
+  // TODO abhijitm you should probably only use this caching when the precision is large, but
+  gamma_lambda := gamma * lambda;
+  if IsDefined(X`CachedActionMtrxs, ellcoset) and IsDefined(X`CachedActionMtrxs, gamma_lambda) then
+  elif IsDefined(X`CachedActionMtrxs, gamma_lambda) then
+    ellcoset_mtrx := matrix_of_induced_action(ellcoset, weight, X);
+    X`CachedActionMtrxs[ellcoset] := ellcoset_mtrx;
+  elif IsDefined(X`CachedActionMtrxs, ellcoset) then
+    gamma_lambda_mtrx := matrix_of_induced_action(gamma_lambda, weight, X);
+    X`CachedActionMtrxs[gamma_lambda] := gamma_lambda_mtrx;
+  else
+    ellcoset_mtrx := matrix_of_induced_action(ellcoset, weight, X);
+    gamma_lambda_mtrx := matrix_of_induced_action(gamma_lambda, weight, X);
+    X`CachedActionMtrxs[ellcoset] := ellcoset_mtrx;
+    X`CachedActionMtrxs[gamma_lambda] := gamma_lambda_mtrx;
+    // return matrix_of_induced_action(gamma * lambda * ellcoset, weight, X);
+  end if;
+
+  return X`CachedActionMtrxs[gamma_lambda] * X`CachedActionMtrxs[ellcoset];
 end function;
 
 //-------------
@@ -749,14 +770,18 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
 
       // Ensure lambda is trivial at N.
       if not IsLevelOne then
-        alphas := [eichlerize(lambda * ellcoset, Gammap_datum) 
-               : ellcoset in ellcosets];
+        alphas := [];
+        gammas := [];
+        for ellcoset in ellcosets do
+          alpha, gamma := eichlerize(lambda * ellcoset, Gammap_datum);
+          Append(~alphas, alpha);
+          Append(~gammas, gamma);
+        end for;
       else
         alphas := [lambda * ellcoset : ellcoset in ellcosets];
       end if;
     end if;
   end if;
-
 
   vprintf ModFrmHil: "Computing conjugation actions ........................ ";
   vtime ModFrmHil:
@@ -769,7 +794,11 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
       Zp := [matrix_of_action(alpha, weight, Gamma_datum) : alpha in alphas];
     end if;
   else
-    Zp := [matrix_of_induced_action(alpha, weight, Gamma_datum) : alpha in alphas];
+    if not elleqoo then
+      Zp := [smart_matrix_of_induced_action(gammas[i], lambda, ellcosets[i], weight, Gamma_datum) : i in [1 .. #alphas]];
+    else
+      Zp := [matrix_of_induced_action(alpha, weight, Gamma_datum) : alpha in alphas];
+    end if;
   end if;
 
   Y_Op := [];
@@ -843,3 +872,4 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     end if;
   end if;
 end function;
+

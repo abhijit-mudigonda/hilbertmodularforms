@@ -21,7 +21,8 @@ declare attributes IdealDatum:
   CosetReps,
   CosetRepsByP1,
   InducedModuleMtrxs,
-  H1s;
+  H1s,
+  CachedActionMtrxs;
 
 declare attributes GrpPSL2 : ideal_data;
 
@@ -71,6 +72,8 @@ intrinsic cIdealDatum(
 
   X`CosetRepsByP1 := AssociativeArray();
   X`CosetReps := Gamma0Cosets(X);
+
+  X`CachedActionMtrxs := AssociativeArray();
 
   for i := 1 to #X`P1Elements do
     // TODO abhijitm these next three lines should be removed before committing,
