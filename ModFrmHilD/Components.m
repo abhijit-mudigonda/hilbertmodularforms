@@ -803,12 +803,15 @@ ideal class [mm*bb].}
     mmbbpinv := (M`NarrowClassGroupRepsToIdealDual[mmbb])^(-1);
     for nn -> nu in IdealToRep(M)[mmbb] do
         if Norm(nu) * Norm(mmbbpinv) le prec and IsIntegral(nn * mminv) then
-            a_nn := Coefficient(f, ZF!!(nn*mminv));
+            a_nu := Coefficient(f, IdealToRep(M, ZF!!(nn*mminv)));
+            /*
             if IsParallel(k) then
               coeffs[nu] := a_nn;
             else
               coeffs[nu] := IdlCoeffToEltCoeff(a_nn, nu, k, coeff_ring);
             end if;
+            */
+            coeffs[nu] := a_nu;
         else
             coeffs[nu] := coeff_ring ! 0;
         end if;
