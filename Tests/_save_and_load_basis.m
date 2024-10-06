@@ -64,8 +64,6 @@ S24 := CuspFormBasis(M24);
 correct_prefix := "-5.0.1=49.1=2.4=1u0.0u1.2u";
 test(M24, S24, correct_prefix);
 
-// uncomment once cubic field stuff works without errors
-/*
 print "thing 4";
 R<x> := PolynomialRing(Rationals());
 K<a> := NumberField(x^3 - x^2 - 2*x + 1);
@@ -78,4 +76,6 @@ M222 := HMFSpace(M, N, [2, 2, 2]);
 S222 := CuspFormBasis(M222);
 correct_prefix := "1.-2.-1.1=1331.1=2.2.2=0";
 test(M222, S222, correct_prefix);
-*/
+
+print "thing 5";
+N := ideal<ZF | [43, 0, 0], [15, 1, 0]>;
