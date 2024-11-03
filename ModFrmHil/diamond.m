@@ -29,6 +29,108 @@ end intrinsic;
 
 forward DiamondOperatorDefiniteBig;
 
+// Functions for saving and loading Hecke matrices
+//
+// These are useful when attempting to compute a single space of large
+// weight/level/precision since the Hecke matrices can be computed separately
+// in parallel and saved. 
+
+intrinsic FldEltLabel(x::FldNumElt : Precision:=5) -> MonStgElt
+  {}
+  assert Type(x) eq FldNumElt;
+  assert IsTotallyReal(Parent(x));
+  x_emb := Evaluate(x, MarkedEmbedding(Parent(x)) 
+        : Precision:=Precision);
+  if not IsZero(x_emb) then
+    mantissa := Floor(Log(Abs(x_emb)) / Log(10));
+    x_emb_scaled := Floor(10^(Precision - mantissa) * x_emb);
+    return Join([IntegerToString(x_emb_scaled), IntegerToString(mantissa - Precision)], "u");
+  else
+    return "0";
+  end if;
+end intrinsic;
+
+function AlgQuatEltLabel(x : Precision:=5)
+  assert Type(x) eq AlgQuatElt;
+  return Join([FldEltLabel(y) : y in Eltseq(x)], "_");
+end function;
+
+function HeckeMatrixLabel(Gamma, N, pp, k, chi)
+  O := QuaternionOrder(Gamma);
+  B := Algebra(O);
+  F := BaseField(B);
+  F_label := HackyFieldLabel(F);
+  // TODO abhijitm - should do better if you want to merge but it's fine for now
+  alg_label := Join([AlgQuatEltLabel(B.i^2) : i in [1 .. 2]], "_");
+  ord_label := Join([AlgQuatEltLabel(O.i) : i in [1 .. 3]], "_");
+  N_label := LMFDBLabel(N);
+  if pp cmpne "Infinity" then
+    pp_label := LMFDBLabel(pp);
+  else
+    pp_label := "infty";
+  end if;
+    
+  // the weight label for [a, b, c, ...] is a.b.c_...
+  k_label := Join([IntegerToString(k_i) : k_i in k], ".");
+  chi_label := HeckeCharLabel(chi : full_label:=false);
+
+  hm_dir := "Precomputations/hecke_mtrxs/";
+  filename := Join([F_label, alg_label, ord_label, N_label, pp_label, k_label, chi_label], "=") cat "_hecke_mtrx";
+  return hm_dir cat filename;
+end function;
+
+function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
+  // inputs - the usual inputs to HeckeMatrix2 along with an optional
+  //   boolean parameter SaveAndLoad. If SaveAndLoad is true then we
+  //   attempt to load Hecke matrices before we call HeckeMatrix2
+
+  Gamma := FuchsianGroup(QuaternionOrder(M));
+  F := BaseField(M);
+  N := Level(M);
+  k := Weight(M);
+  chi := DirichletCharacter(M);
+  K := hecke_matrix_field(M);
+
+  loadfile_name := HeckeMatrixLabel(Gamma, N, pp, k, chi);
+  
+  is_saved, loadfile := OpenTest(loadfile_name, "r");
+
+  if is_saved and SaveAndLoad and (Type(pp) eq RngOrdIdl) then
+    print "---- loading a saved matrix! ----";
+    hecke_mtrx := ReadObject(loadfile);
+    pp_rep := ReadObject(loadfile);
+    assert M cmpne 0;
+    K_saved := NumberField(BaseRing(hecke_mtrx));
+    assert IsIsomorphic(K_saved, K);
+    assert DefiningPolyCoeffs(K_saved) eq DefiningPolyCoeffs(K);
+    hecke_mtrx := StrongCoerceMatrix(K, hecke_mtrx);
+    assert IsIsomorphic(NumberField(Parent(pp_rep)), F);
+    assert DefiningPolyCoeffs(F) eq DefiningPolyCoeffs(NumberField(Parent(pp_rep)));
+    pp_rep := StrongCoerce(F, pp_rep);
+  else
+    print "---- calling HeckeMatrix2! ----";
+    hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
+  end if;
+  return hecke_mtrx, pp_rep;
+end function;
+
+procedure SaveHeckeMatrix(M, pp)
+  Gamma := FuchsianGroup(QuaternionOrder(M));
+  N := Level(M);
+  k := Weight(M);
+  chi := DirichletCharacter(M);
+
+  SaveHeckeMatrix(Gamma, N, pp, k, chi);
+end procedure;
+
+procedure SaveHeckeMatrix(Gamma, N, pp, k, chi)
+  hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
+  savefile_name := HeckeMatrixLabel(Gamma, N, pp, k, chi);
+  savefile := Open(savefile_name, "w+");
+  WriteObject(savefile, hecke_mtrx);
+  WriteObject(savefile, pp_rep);
+end procedure;
+
 // from hecke.m
 
 function operator(M, p, op : hack:=true)
@@ -123,7 +225,7 @@ function operator(M, p, op : hack:=true)
 
     Gamma := FuchsianGroup(QuaternionOrder(M));
     case op:
-      when "Hecke" : Tp_big, p_rep := HeckeMatrix2(Gamma, N, p, Weight(M), DirichletCharacter(M));
+      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=true);
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
