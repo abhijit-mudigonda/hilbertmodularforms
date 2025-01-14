@@ -91,7 +91,7 @@ function weight_map_arch(b, n : m:=[0 : _ in #n], X:=0)
   // parallel weight 2 case
   // TODO abhijitm should account for m
   if n eq [0 : _ in [1 .. #n]] and Order(X`Character) eq 1 then
-    return MatrixRing(Integers(), 1)!1;
+    return MatrixRing(Rationals(), 1)!1;
   end if;
 
   splittings, K, _ := Splittings(Parent(b));
@@ -192,7 +192,7 @@ function matrix_of_action(b, k, X)
   m := m_from_k(k);
 
   if is_par_wt_2(k) and IsTrivial(X`Character) then
-    return IdentitySparseMatrix(Integers(), weight_rep_dim(k));
+    return IdentitySparseMatrix(Rationals(), weight_rep_dim(k));
   else
     return weight_map_arch(b, n : m:=m, X:=X);
   end if;
@@ -236,7 +236,7 @@ function matrix_of_induced_action(b, k, X)
 
   // R will be the ring over which our matrices are defined
   if is_par_wt_2(k) and IsTrivial(X`Character) then
-    R := Integers();
+    R := Rationals();
   else
     _, K, _ := Splittings(Parent(b));
     R := Compositum(K, CyclotomicField(Order(X`Character)));
