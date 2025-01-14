@@ -31,6 +31,8 @@ import "definite.m":
 import !"Geometry/BianchiNew/hackobj.m" : DimensionBianchi;
 // hack ends
 
+import "../weight_rep.m" : is_paritious;
+
 QuaternionOrderIntrinsic := QuaternionOrder; 
 
 declare attributes AlgAssVOrd : ModFrmHils; 
@@ -1027,7 +1029,9 @@ function qa_discriminant(F, N, Nnew, k, chi)
     // TODO abhijitm this is temporary for testing, to force
     // usage of the indefinite code even in cases where the definite
     // method is possible.
-    // return true, false, 1*Integers(F);
+    if not is_paritious(k) then
+      return true, false, 1*Integers(F);
+    end if;
     facts := Factorization(Nnew);
     // check facts are sorted
     norms := [Norm(t[1]) : t in facts]; 
