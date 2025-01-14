@@ -17,6 +17,8 @@ import !"Geometry/ModFrmHil/hecke.m" :
 
 import "hackobj.m" : HMF0;
 import "hecke_field.m" : hecke_matrix_field, WeightRepresentation;
+import "level.m" : InducedH1Internal;
+import "ideal_datum.m" : compute_coset_reps_by_p1;
 
 /**************** New intrinsics **********************/
 
@@ -55,27 +57,116 @@ function AlgQuatEltLabel(x : Precision:=5)
   return Join([FldEltLabel(y) : y in Eltseq(x)], "_");
 end function;
 
-function HeckeMatrixLabel(Gamma, N, pp, k, chi)
-  O := QuaternionOrder(Gamma);
+function AlgAssVOrdLabel(O)
   B := Algebra(O);
-  F := BaseField(B);
-  F_label := HackyFieldLabel(F);
   // TODO abhijitm - should do better if you want to merge but it's fine for now
   alg_label := Join([AlgQuatEltLabel(B.i^2) : i in [1 .. 2]], "_");
   ord_label := Join([AlgQuatEltLabel(O.i) : i in [1 .. 3]], "_");
+  return Join([alg_label, ord_label], "=");
+end function;
+
+function XLabel(Gamma, N, chi)
+  O := QuaternionOrder(Gamma);
+  F := BaseField(Algebra(O));
+  F_label := HackyFieldLabel(F);
+  ord_label := AlgAssVOrdLabel(O);
+  // TODO abhijitm - should do better if you want to merge but it's fine for now
   N_label := LMFDBLabel(N);
-  if pp cmpne "Infinity" then
-    pp_label := LMFDBLabel(pp);
-  else
-    pp_label := "infty";
-  end if;
-    
+  chi_label := HeckeCharLabel(chi : full_label:=false);
+  return Join([F_label, ord_label, N_label, chi_label], "=");
+end function;
+
+function XFilepath(Gamma, N, chi)
+  X_dir := "Precomputations/ideal_data/";
+  filename := XLabel(Gamma, N, chi) cat "_ideal_data";
+  return X_dir cat filename;
+end function;
+
+function SerializeAlgAssVOrdEltSeq(A)
+  // A::SeqEnum[AlgAssVOrdElt]
+  //
+  // We return a label for the maximal order O and
+  // then a serialization of the 
+  assert #A gt 0;
+  assert Type(A[1]) eq AlgAssVOrdElt;
+  O := Parent(A[1]);
+  B := Algebra(O);
+  ord_label := AlgAssVOrdLabel(O);
+  serialized_A := [Eltseq(B!x) : x in A];
+  return ord_label, serialized_A;
+end function;
+
+function DeserializeAlgAssVOrdEltSeq(O, ord_label, A_ser)
+  // O::AlgAssVOrd
+  // ord_label::MonStgElt - label for a maximal order of a quaternion algebra
+  // A_ser::SeqEnum[SeqEnum[FldOrdElt]] - a sequence of serialized elements
+  //   of the quaternion order ord_label
+  
+  assert AlgAssVOrdLabel(O) eq ord_label;
+  B := Algebra(O);
+  F := BaseField(B);
+  // assert IsIsomorphic(Parent(A_ser[1][1]));
+  return [O!B![StrongCoerce(F, y) : y in x] : x in A_ser];
+end function;
+
+procedure SaveXParams(X)
+  Gamma := X`FuchsianGroup;
+  O := Gamma`BaseRing;
+  F := BaseField(Algebra(O));
+  N := X`Ideal;
+  chi := X`Character;
+  ord_label, gamma0cosets_ser := SerializeAlgAssVOrdEltSeq(X`CosetReps);
+  savefile_name := XFilepath(Gamma, N, chi);
+  savefile := Open(savefile_name, "w");
+  WriteObject(savefile, ord_label);
+  WriteObject(savefile, gamma0cosets_ser);
+  WriteObject(savefile, 
+      [[F!x : x in Eltseq(X`ResidueMap(O.i))] : i in [1 .. 4]]);
+  savefile := 0;
+end procedure;
+
+procedure UpdateIdealDatumFromSave(~X)
+  // X::IdealDatum
+  //
+  // Replaces the values of X`CosetReps and X`ResidueMap
+  // with stored values
+  loadfile_name := XFilepath(X`FuchsianGroup, X`Ideal, X`Character);
+  is_saved, loadfile := OpenTest(loadfile_name, "r");
+  O := (X`FuchsianGroup)`BaseRing;
+  B := Algebra(O);
+  ord_label := ReadObject(loadfile);
+  gamma0cosets_ser := ReadObject(loadfile);
+  X`CosetReps := DeserializeAlgAssVOrdEltSeq(O, ord_label, gamma0cosets_ser);
+  F := BaseField(B);
+  ZF := Integers(F);
+  Oi_images := ReadObject(loadfile);
+  assert #Oi_images eq 4;
+  S := Codomain(X`ResidueMap);
+  X`ResidueMap := func<x | S!(&+[Eltseq(O!x)[i] * S!Oi_images[i] : i in [1 .. 4]])>;
+  compute_coset_reps_by_p1(~X);
+  loadfile := 0;
+end procedure;
+
+function HeckeMatrixLabel(Gamma, N, pp, k, chi)
+  X_label := XLabel(Gamma, N, chi);
   // the weight label for [a, b, c, ...] is a.b.c_...
   k_label := Join([IntegerToString(k_i) : k_i in k], ".");
-  chi_label := HeckeCharLabel(chi : full_label:=false);
 
+  if Type(pp) eq RngOrdIdl then
+    pp_label := LMFDBLabel(pp);
+  else
+    assert pp eq "Infinity";
+    pp_label := "infty";
+  end if;
+  
   hm_dir := "Precomputations/hecke_mtrxs/";
-  filename := Join([F_label, alg_label, ord_label, N_label, pp_label, k_label, chi_label], "=") cat "_hecke_mtrx";
+  filename := Join([X_label, k_label, pp_label], "=");
+  return hm_dir cat filename;
+end function;
+
+function HeckeMatrixFilepath(Gamma, N, pp, k, chi)
+  hm_dir := "Precomputations/hecke_mtrxs/";
+  filename := HeckeMatrixLabel(Gamma, N, pp, k, chi) cat "_hecke_mtrx";
   return hm_dir cat filename;
 end function;
 
@@ -84,33 +175,46 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
   //   boolean parameter SaveAndLoad. If SaveAndLoad is true then we
   //   attempt to load Hecke matrices before we call HeckeMatrix2
 
+  // SaveAndLoad := false;
   Gamma := FuchsianGroup(QuaternionOrder(M));
   F := BaseField(M);
   N := Level(M);
   k := Weight(M);
   chi := DirichletCharacter(M);
-  K := hecke_matrix_field(M);
+
+  if not assigned TopAmbient(M)`weight_base_field then
+    _ := WeightRepresentation(TopAmbient(M));
+  end if;
+
+  K := TopAmbient(M)`weight_base_field;
 
   loadfile_name := HeckeMatrixLabel(Gamma, N, pp, k, chi);
   
   is_saved, loadfile := OpenTest(loadfile_name, "r");
 
-  if is_saved and SaveAndLoad and (Type(pp) eq RngOrdIdl) then
+  if is_saved and SaveAndLoad then
     print "---- loading a saved matrix! ----";
     hecke_mtrx := ReadObject(loadfile);
-    pp_rep := ReadObject(loadfile);
     assert M cmpne 0;
-    K_saved := NumberField(BaseRing(hecke_mtrx));
+    K_saved := BaseRing(hecke_mtrx);
     assert IsIsomorphic(K_saved, K);
     assert DefiningPolyCoeffs(K_saved) eq DefiningPolyCoeffs(K);
     hecke_mtrx := StrongCoerceMatrix(K, hecke_mtrx);
-    assert IsIsomorphic(NumberField(Parent(pp_rep)), F);
-    assert DefiningPolyCoeffs(F) eq DefiningPolyCoeffs(NumberField(Parent(pp_rep)));
-    pp_rep := StrongCoerce(F, pp_rep);
+
+    if Type(pp) eq RngOrdIdl then
+      pp_rep := ReadObject(loadfile);
+      // print IdealOneLine(pp), CharacteristicPolynomial(hecke_mtrx);
+      assert IsIsomorphic(NumberField(Parent(pp_rep)), F);
+      assert DefiningPolyCoeffs(F) eq DefiningPolyCoeffs(NumberField(Parent(pp_rep)));
+      pp_rep := StrongCoerce(F, pp_rep);
+    else
+      pp_rep := 0;
+    end if;
   else
-    print "---- calling HeckeMatrix2! ----";
+    print "---- can't load, calling HeckeMatrix2! ----";
     hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
   end if;
+  loadfile := 0;
   return hecke_mtrx, pp_rep;
 end function;
 
@@ -129,6 +233,21 @@ procedure SaveHeckeMatrix(Gamma, N, pp, k, chi)
   savefile := Open(savefile_name, "w+");
   WriteObject(savefile, hecke_mtrx);
   WriteObject(savefile, pp_rep);
+  savefile_name := HeckeMatrixLabel(Gamma, N, pp, k, chi);
+  savefile := Open(savefile_name, "w+");
+
+  if Type(pp) eq RngOrdIdl then
+    hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
+    // print IdealOneLine(pp), CharacteristicPolynomial(hecke_mtrx);
+    WriteObject(savefile, hecke_mtrx);
+    WriteObject(savefile, pp_rep);
+  else
+    assert pp eq "Infinity";
+    hecke_mtrx := HeckeMatrix2(Gamma, N, pp, k, chi);
+    // print pp, CharacteristicPolynomial(hecke_mtrx);
+    WriteObject(savefile, hecke_mtrx);
+  end if;
+  savefile := 0;
 end procedure;
 
 // from hecke.m

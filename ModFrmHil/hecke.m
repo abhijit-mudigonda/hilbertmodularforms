@@ -2,6 +2,7 @@ import !"Geometry/ModFrmHil/hecke.m" : make_ideal;
 import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne;
 import "weight_rep.m" : is_paritious;
 import "hecke_field.m" : hecke_matrix_field;
+import "diamond.m" : GetHeckeMatrix;
 
 // For Fuchsian group Gamma, return a basis matrix for the plus subspace 
 // of HeckeMatrix(Gamma, "Infinity") 
@@ -9,7 +10,9 @@ import "hecke_field.m" : hecke_matrix_field;
 function basis_of_plus_subspace(M) 
   Gamma := FuchsianGroup(QuaternionOrder(M));
   N := Level(M) / make_ideal(Discriminant(QuaternionOrder(M)));
-  T := HeckeMatrix2(Gamma, N, "Infinity", Weight(M), DirichletCharacter(M));
+  assert N eq Level(M);
+  T := GetHeckeMatrix(M, "Infinity" : SaveAndLoad:=true);
+  // T := HeckeMatrix2(Gamma, N, "Infinity", Weight(M), DirichletCharacter(M));
   if T cmpeq [] then 
     T := Matrix(Integers(), 0, 0, []); 
   end if;
