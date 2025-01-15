@@ -13,7 +13,6 @@ declare attributes IdealDatum:
   FuchsianGroup,
   Ideal,
   IntegerRing,
-  ResidueRing,
   Character,
   P1Elements,
   P1Rep,
@@ -55,18 +54,42 @@ intrinsic cIdealDatum(
 
   O := QuaternionOrder(Gamma);
   F := BaseField(Algebra(O));
+  ZF := Integers(F);
 
   H := HeckeCharacterGroup(I, [1 .. Degree(F)]);
   assert Parent(chi) eq H;
   X`Character := chi;
 
-  X`ResidueRing := quo<IntegerRing(X) | I>; 
+  SetSeed(1337);
   X`P1Elements, X`P1Rep := GetOrMakeP1_new(Gamma, I); 
   _, X`ResidueMap := ResidueMatrixRing(O, I);
 
   if not (assigned Gamma`ShimFDSidepairsDomain and assigned Gamma`ShimFDDisc) then
     // assigns attributes of Gamma which are needed in Gamma0Cosets
     // this step can be slow
+    
+
+    // TODO abhijitm remove before committing
+    // we hardcode a selection of side pairing elements for the fundamental domain
+    // of the hardcoded quaternion algebra
+    //
+    // coupled with the fixed seed above, this *should* make the computation of 
+    // Hecke matrices deterministic
+    gquats_zf := [
+        [ZF.1, -1/2*ZF.1, 0, 0],
+        [-ZF.2, 1/2*ZF.1 - 1/2*ZF.3, 0, -1/6*ZF.1 + 1/12*ZF.3],
+        [ZF.1 - ZF.3, -ZF.1 + ZF.3, -1/3*ZF.1 + 1/6*ZF.3, 1/6*ZF.1 - 1/12*ZF.3]
+    ];
+
+    gquats_O := [(&+[Eltseq(x)[i] * O.i : i in [1 .. 4]]) : x in gquats_zf];
+    gquats := [Gamma!x : x in gquats_O];
+
+
+    Gamma`ShimGroupSidepairsQuats := <gquats, [g^(-1) : g in gquats_O]>;
+    // hardcoded precision value
+    D := UnitDisc(: Center := 9/10*UpperHalfPlane().1, Precision := 40);
+    FundamentalDomain(Gamma, D : StartDomain:=gquats_O);
+
     _ := Group(Gamma);
   end if;
 
