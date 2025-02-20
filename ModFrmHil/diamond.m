@@ -180,14 +180,14 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
   F := BaseField(M);
   N := Level(M);
   k := Weight(M);
-  chi := DirichletCharacter(M);
+  chi := DirichletCharacter(M);   
 
   if not assigned TopAmbient(M)`weight_base_field then
     _ := WeightRepresentation(TopAmbient(M));
   end if;
 
-  K := TopAmbient(M)`weight_base_field;
-
+  K := TopAmbient(M)`weight_base_field;    
+ 
   loadfile_name := HeckeMatrixLabel(Gamma, N, pp, k, chi);
   
   is_saved, loadfile := OpenTest(loadfile_name, "r");
@@ -211,8 +211,17 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
       pp_rep := 0;
     end if;
   else
-    print "---- can't load, calling HeckeMatrix2! ----";
-    hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
+    // print "---- can't load, calling HeckeMatrix2! ----";
+    // the specific level 12 weight [2,2,3] case
+    if N eq 12*ZF and HeckeCharLabel(chi) eq "1.-2.-1.1_1728.1_2u1.1.1.1u1.2.3u" and k eq [1,1,2] then
+      O_3 := Order(QuaternionOrder(M), 3*ZF);
+      Gamma := FuchsianGroup(O_3);
+      H := HeckeCharacterGroup(4*ZF, [1,2,3]);
+      chi_3 := Restrict(chi, H); // weird name, since it's conductor 4
+      hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, 4*ZF, pp, k, chi_3);
+    else
+      hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
+    end if;
   end if;
   loadfile := 0;
   return hecke_mtrx, pp_rep;
@@ -344,7 +353,7 @@ function operator(M, p, op : hack:=true)
 
     Gamma := FuchsianGroup(QuaternionOrder(M));
     case op:
-      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=true);
+      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=false);
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
