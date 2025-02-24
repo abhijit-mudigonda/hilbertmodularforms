@@ -213,7 +213,7 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
   else
     // print "---- can't load, calling HeckeMatrix2! ----";
     // the specific level 12 weight [2,2,3] case
-    if N eq 12*ZF and HeckeCharLabel(chi) eq "1.-2.-1.1_1728.1_2u1.1.1.1u1.2.3u" and k eq [1,1,2] then
+    if N eq 12*ZF and HeckeCharLabel(chi) eq "1.-2.-1.1_1728.1_2u1.1.1.1u1.2.3u" and k eq [1,1,2] and pp ne 3*ZF then
       O_3 := Order(QuaternionOrder(M), 3*ZF);
       Gamma := FuchsianGroup(O_3);
       H := HeckeCharacterGroup(4*ZF, [1,2,3]);
