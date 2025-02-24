@@ -53,6 +53,7 @@ intrinsic cIdealDatum(
   X`Ideal := I;
 
   O := QuaternionOrder(Gamma);
+  X`QuaternionOrder := O;
   F := BaseField(Algebra(O));
   ZF := Integers(F);
 
@@ -96,6 +97,7 @@ intrinsic cIdealDatum(
 
   X`CosetReps := Gamma0Cosets(X);
 
+  X`CachedActionMtrxs := AssociativeArray();
   X`InducedModuleMtrxs := AssociativeArray();
   X`H1s := AssociativeArray();
 
@@ -125,7 +127,6 @@ intrinsic CosetRepsByP1(X::IdealDatum) -> AssociativeArray
     return X`CosetRepsByP1;
   end if;
   X`CosetRepsByP1 := AssociativeArray();
-  X`CachedActionMtrxs := AssociativeArray();
 
   for i := 1 to #X`P1Elements do
     // TODO abhijitm these next three lines should be removed before committing,
