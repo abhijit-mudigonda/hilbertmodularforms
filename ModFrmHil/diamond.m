@@ -17,8 +17,9 @@ import !"Geometry/ModFrmHil/hecke.m" :
 
 import "hackobj.m" : HMF0;
 import "hecke_field.m" : hecke_matrix_field, WeightRepresentation;
-import "level.m" : InducedH1Internal;
+import "level.m" : InducedH1Internal, CompleteRelationFromUnit;
 import "ideal_datum.m" : compute_coset_reps_by_p1;
+import "weight_rep.m" : weight_rep_dim;
 
 /**************** New intrinsics **********************/
 
@@ -170,14 +171,109 @@ function HeckeMatrixFilepath(Gamma, N, pp, k, chi)
   return hm_dir cat filename;
 end function;
 
-function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
+// Given ideal data X and X_m, adjusts the coset reps of X
+// so that the coset reps of X_m are a subset of those of X.
+function update_coset_reps(X, X_m)
+  assert X`Ideal eq Discriminant(X_m`QuaternionOrder) * X_m`Ideal;
+  O := X`QuaternionOrder;
+  O_m := X_m`QuaternionOrder;
+  ZF := Integers(BaseField(Algebra(O)));
+  subgp_coset_idxs := [];
+  for w in X_m`P1Elements do
+    // print "w", w;
+    _, c := Explode(CosetRepsByP1(X_m)[w]);
+    u_m := X_m`ResidueMap(c)[2];
+    // print "u_m", u_m;
+    // assert ideal<ZF | u_m[1], u_m[2]> eq 1*ZF;
+    _, wp := X_m`P1Rep(X_m`ResidueMap(c)[2], false, false);
+    assert wp eq w;
+    assert Parent(c) eq O_m;
+    // print "X_m`ResidueMap(c)[2]", X_m`ResidueMap(c)[2];
+    // print "X`ResidueMap(c)[2]", X`ResidueMap(c)[2];
+    // print "c", c;
+    assert &+[Eltseq(c)[i] * O_m.i : i in [1 .. 4]] eq c;
+
+    c := O!c;
+    // print "O!c", c;
+    u := X`ResidueMap(c)[2];
+    // print "u", u;
+    // assert ideal<ZF | u[1], u[2]> eq 1*ZF;
+    _, v := X`P1Rep(u, false, false);
+    // print "v", v;
+    assert v in Keys(X`CosetRepsByP1);
+    j := Index(X`P1Elements, v);
+    assert not (j in subgp_coset_idxs);
+    assert X`CosetReps[j] eq X`CosetRepsByP1[v][2];
+    // set the coset rep at v to c 
+    X`CosetRepsByP1[v] := <j, c>;
+    X`CosetReps[j] := c;
+    Append(~subgp_coset_idxs, j);
+  end for;
+
+  // print subgp_coset_idxs;
+
+  for c in X_m`CosetReps do
+    idx := Index(X`CosetReps, O!c);
+    assert idx ne 0;
+    assert idx in subgp_coset_idxs;
+  end for;
+
+  return subgp_coset_idxs;
+end function;
+
+function shapiro_matrix(X, X_m, k, subgp_coset_idxs)
+  Htilde, mH := InducedH1Internal(X, k);
+  Htilde_m, mH_m := InducedH1Internal(X_m, k);
+  // print "Htilde", Nrows(Htilde), Ncols(Htilde);
+  // print "Htilde_M", Nrows(Htilde_m), Ncols(Htilde_m);
+
+  Z := Domain(mH);
+  Z_m := Domain(mH_m);
+
+  U, _, m := Group(X`FuchsianGroup);
+  U_m, _, m_m := Group(X_m`FuchsianGroup);
+
+  dim_W := weight_rep_dim(k);
+  dim_indW_X := dim_W * #X`P1Elements;
+  dim_indW_Xm := dim_W * #X_m`P1Elements;
+
+  // The Shapiro isomorphism is a restriction (to the smaller group)
+  // followed by a projection (from the induced module to the original module)
+  O_m := X_m`QuaternionOrder;
+  O := X`QuaternionOrder;
+  assert &and[m_m(U_m.i) in O_m : i in [1 .. #Generators(U_m)]];
+  assert &and[IsCoercible(O, m_m(U_m.i)) : i in [1 .. #Generators(U_m)]];
+  rel_mtrxs := [CompleteRelationFromUnit(X, m_m(U_m.i), k) : i in [1 .. #Generators(U_m)]];
+  res_mtrx := HorizontalJoin(rel_mtrxs);
+  assert Nrows(res_mtrx) eq Ncols(res_mtrx);
+  assert Nrows(res_mtrx) eq #Generators(U_m) * dim_indW_X;
+
+  // print "dim_indW_X", dim_indW_X;
+  subgp_mtrx_idxs := &cat[&cat[[(j * dim_indW_X + ((i - 1) * dim_W) + 1) .. (j * dim_indW_X + (i * dim_W))] : i in subgp_coset_idxs] : j in [0, 1]];
+  assert #SequenceToSet(subgp_mtrx_idxs) eq #subgp_mtrx_idxs;
+  // print "subgp_mtrx_idxs", subgp_mtrx_idxs;
+
+  res_mtrx := Submatrix(res_mtrx, [1 .. Nrows(res_mtrx)], subgp_mtrx_idxs);
+  assert Ncols(res_mtrx) eq #Generators(U_m) * dim_indW_Xm;
+
+  // The rows of Htilde are lifts of a basis of Z/B to Z.
+  // res_mtrx takes Z to Z_m
+  A := Htilde * res_mtrx;
+  S := Matrix([mH_m(A[i]) : i in [1 .. Nrows(A)]]);
+
+  return S;
+end function;
+
+function GetHeckeMatrix(M, pp : SaveAndLoad:=false, shapiro_trick:=false)
   // inputs - the usual inputs to HeckeMatrix2 along with an optional
   //   boolean parameter SaveAndLoad. If SaveAndLoad is true then we
   //   attempt to load Hecke matrices before we call HeckeMatrix2
 
-  // SaveAndLoad := false;
+  // shapiro_trick := false;
+  SaveAndLoad := false;
   Gamma := FuchsianGroup(QuaternionOrder(M));
   F := BaseField(M);
+  ZF := Integers(F);
   N := Level(M);
   k := Weight(M);
   chi := DirichletCharacter(M);   
@@ -211,14 +307,37 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false)
       pp_rep := 0;
     end if;
   else
-    // print "---- can't load, calling HeckeMatrix2! ----";
-    // the specific level 12 weight [2,2,3] case
-    if N eq 12*ZF and HeckeCharLabel(chi) eq "1.-2.-1.1_1728.1_2u1.1.1.1u1.2.3u" and k eq [1,1,2] and pp ne 3*ZF then
-      O_3 := Order(QuaternionOrder(M), 3*ZF);
-      Gamma := FuchsianGroup(O_3);
-      H := HeckeCharacterGroup(4*ZF, [1,2,3]);
-      chi_3 := Restrict(chi, H); // weird name, since it's conductor 4
-      hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, 4*ZF, pp, k, chi_3);
+    print "---- can't load, calling HeckeMatrix2! ----";
+    // qqs := PrimesUpTo(50, F);
+    qqs := [3*ZF];
+    if shapiro_trick and (&or[N subset qq : qq in qqs]) then
+      /*
+      // choose the qq of largest possible norm
+      for rr in qqs do
+        if N subset rr then
+          qq := rr;
+        end if;
+      end for;
+      */
+      qq := qqs[1];
+      O_qq := Order(QuaternionOrder(M), qq);
+      Gamma_qq := FuchsianGroup(O_qq);
+      U_m, mm_m, m_m := Group(Gamma_qq);
+      X := cIdealDatum(Gamma, N : chi:=chi);
+      assert IsDefined(Gamma`ideal_data, N);
+      assert IsDefined(Gamma`ideal_data[N], chi);
+      H := HeckeCharacterGroup(N / qq, [1,2,3]);
+      chi_qq := Restrict(chi, H); // weird name, since it's modulus N/qq
+      X_qq := cIdealDatum(Gamma_qq, N / qq : chi:=chi_qq, residue_map:=X`ResidueMap);
+      subgp_coset_idxs := update_coset_reps(X, X_qq);
+
+      if pp cmpne "Infinity" and IsOne(GCD(pp, N)) then
+        hecke_mtrx, pp_rep := HeckeMatrix2(Gamma_qq, N / qq, pp, k, chi_qq);
+      else
+        S := shapiro_matrix(X, X_qq, k, subgp_coset_idxs);
+        hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
+        hecke_mtrx := S^-1 * hecke_mtrx * S;
+      end if;
     else
       hecke_mtrx, pp_rep := HeckeMatrix2(Gamma, N, pp, k, chi);
     end if;
@@ -353,7 +472,7 @@ function operator(M, p, op : hack:=true)
 
     Gamma := FuchsianGroup(QuaternionOrder(M));
     case op:
-      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=false);
+      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=false, shapiro_trick:=true);
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
