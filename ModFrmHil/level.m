@@ -101,7 +101,6 @@ function InducedH1Internal(X, k);
   if IsDefined(X`H1s, k) then
     return Explode(X`H1s[k]);
   end if;
-
     
   Gamma := X`FuchsianGroup;
   U, _, m := Group(Gamma);
@@ -143,6 +142,8 @@ function InducedH1Internal(X, k);
     assert Abs(Norm(Determinant(mHtilde))) eq 1;
     // I think Htilde takes a basis vector of Z/B to its lift
     Htilde := mHtilde^(-1)*Matrix(Htilde);
+  else
+    Htilde := 0;
   end if;
 
   X`H1s[k] := <Htilde, mH>;
@@ -545,7 +546,6 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := f
 end intrinsic;
 
 HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := false);
-  print "HeckeMatrix1", GetMemoryUsage();
   // Initialization.
   Gamma_mother := O_mother`FuchsianGroup;
   assert O_mother`RightIdealClasses[ridsbasis][4];
@@ -581,7 +581,6 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   mside := Gamma`ShimGroupSidepairsMap;
   n := #Generators(U);
   lifts := [m(U.i) : i in [1..n]];
-  print "Gamma and sidepairs", GetMemoryUsage();
 
   IsLevelOne := Norm(N) eq 1;
   IsParallelWeightTwo := is_par_wt_2(weight);
@@ -596,7 +595,6 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   end if;
   cosets := Gamma_datum`CosetReps;
   cosetsp := Gammap_datum`CosetReps;
-  print "Gamma datum", GetMemoryUsage();
 
   D := Parent(Gamma`ShimFDDisc[1]); 
 
@@ -635,8 +633,6 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   else
     ooinNormSupport := false;
   end if;
-
-  print "elleqoo", GetMemoryUsage();
 
   // Catch the cases where we work hard:
   // (1) ell = oo and the representative element of negative norm is not coprime;
@@ -732,7 +728,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
 
     Htilde, mH := InducedH1(Gamma_datum, Gammap_datum, weight);
 
-    if Nrows(Htilde) eq 0 then
+    if Htilde cmpeq 0 then
       return [], _;
     else
       M := HorizontalJoin([ HorizontalJoin([ &+[ Y_U[i][k][j] : j in [1..numP1]] : k in [1..#cosets]]) : i in [1..n] ]);
@@ -754,7 +750,6 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   // We still have to do some extra computing if ell is in the support of the ideal classes.
   // First, if ell <> oo, we need to get our lambdas.
   if not elleqoo then
-    print "entering not elleqoo", GetMemoryUsage();
     if ellAL then
       numP1 := 1;
     else
@@ -805,7 +800,6 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   vprintf ModFrmHil: "Computing conjugation actions ........................ ";
   vtime ModFrmHil:
 
-  print "about to compute conj actions", GetMemoryUsage();
   // if level 1 and parallel weight 2, the coefficient module is trivial
   // and there's no Zp action
   if IsLevelOne then
@@ -821,13 +815,11 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     end if;
   end if;
 
-  print "computed conj actions", GetMemoryUsage();
   Y_Op := [];
   X := [];
   vprintf ModFrmHil: "Defining maps for relations from units ............... ";
   vtime ModFrmHil:
 
-  print "about to define maps for relations", GetMemoryUsage();
   for i in [1..n] do
     Y_Opi := [];
     Xi := [];
@@ -859,7 +851,6 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     Append(~X, Xi);
     Append(~Y_Op, Y_Opi);
   end for;
-  print "defined maps for relations", GetMemoryUsage();
 
 
   Y_U := [];
@@ -878,15 +869,12 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     end for;
     Append(~Y_U, G);
   end for;
-  print "reduced units", GetMemoryUsage();
 
   vprintf ModFrmHil: "Computing H1 (coinduced) ............................. ";
   vtime ModFrmHil:
   Htilde, mH := InducedH1(Gamma_datum, Gammap_datum, weight);
 
-  print "called inducedH1", GetMemoryUsage();
-
-  if Nrows(Htilde) eq 0 then
+  if Htilde cmpeq 0 then
     return [], _;
   else
     M := HorizontalJoin([ &+[ Y_U[i][j] : j in [1..numP1]] : i in [1..n] ]);
