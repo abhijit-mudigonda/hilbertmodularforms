@@ -1,7 +1,7 @@
 intrinsic EisensteinSeries(
   Mk::ModFrmHilD,
-  eta::GrpHeckeElt,
-  psi::GrpHeckeElt
+  eta,
+  psi
   :
   dd:=1,
   Coefficients:=false
