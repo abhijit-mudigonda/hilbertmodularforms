@@ -230,7 +230,9 @@ function shapiro_matrix(X, X_m, k, subgp_coset_idxs)
   Z := Domain(mH);
   Z_m := Domain(mH_m);
 
+  SetSeed(1337);
   U, _, m := Group(X`FuchsianGroup);
+  SetSeed(1337);
   U_m, _, m_m := Group(X_m`FuchsianGroup);
 
   dim_W := weight_rep_dim(k);
@@ -309,7 +311,7 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false, shapiro_trick:=false)
   else
     print "---- can't load, calling HeckeMatrix2! ----";
     // qqs := PrimesUpTo(50, F);
-    qqs := [3*ZF];
+    qqs := [Factorization(7*ZF)[1][1]];
     if shapiro_trick and (&or[N subset qq : qq in qqs]) then
       /*
       // choose the qq of largest possible norm
@@ -320,14 +322,18 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false, shapiro_trick:=false)
       end for;
       */
       qq := qqs[1];
+      SetSeed(1337);
       O_qq := Order(QuaternionOrder(M), qq);
       Gamma_qq := FuchsianGroup(O_qq);
+      SetSeed(1337);
       U_m, mm_m, m_m := Group(Gamma_qq);
+      SetSeed(1337);
       X := cIdealDatum(Gamma, N : chi:=chi);
       assert IsDefined(Gamma`ideal_data, N);
       assert IsDefined(Gamma`ideal_data[N], chi);
       H := HeckeCharacterGroup(N / qq, [1,2,3]);
       chi_qq := Restrict(chi, H); // weird name, since it's modulus N/qq
+      SetSeed(1337);
       X_qq := cIdealDatum(Gamma_qq, N / qq : chi:=chi_qq, residue_map:=X`ResidueMap);
       subgp_coset_idxs := update_coset_reps(X, X_qq);
 
