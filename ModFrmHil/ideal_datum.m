@@ -197,7 +197,6 @@ function Gamma0Cosets(X : LeftCosets:=true)
   end if;
 
   vprintf ModFrmHil: "Computing cosets ..................................... ";
-  print "ideal", IdealOneLine(N);
   time0 := Cputime();
   
   O := BaseRing(Gamma);
@@ -244,9 +243,7 @@ function Gamma0Cosets(X : LeftCosets:=true)
   end while;
 
   if #Factorization(N) gt 0 then
-    print "cosetcnt", cosetcnt;
     assert #X`P1Elements eq Norm(N)*&*[1+1/Norm(pp[1]) : pp in Factorization(N)];
-    print "size of P1(N)", Norm(N)*&*[1+1/Norm(pp[1]) : pp in Factorization(N)];
     assert cosetcnt eq Norm(N)*&*[1+1/Norm(pp[1]) : pp in Factorization(N)];
   end if; 
 
