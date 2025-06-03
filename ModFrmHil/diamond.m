@@ -271,7 +271,7 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false, shapiro_trick:=false)
   //   boolean parameter SaveAndLoad. If SaveAndLoad is true then we
   //   attempt to load Hecke matrices before we call HeckeMatrix2
 
-  // shapiro_trick := false;
+  shapiro_trick := true;
   SaveAndLoad := false;
   Gamma := FuchsianGroup(QuaternionOrder(M));
   F := BaseField(M);
@@ -311,8 +311,9 @@ function GetHeckeMatrix(M, pp : SaveAndLoad:=false, shapiro_trick:=false)
   else
     print "---- can't load, calling HeckeMatrix2! ----";
     // qqs := PrimesUpTo(50, F);
-    qqs := [Factorization(7*ZF)[1][1]];
+    qqs := [2*ZF];
     if shapiro_trick and (&or[N subset qq : qq in qqs]) then
+      print "shapiro trick!";
       /*
       // choose the qq of largest possible norm
       for rr in qqs do
@@ -465,6 +466,15 @@ function operator(M, p, op : hack:=true)
 
   else // indefinite quat order
 
+    // When the discriminant of the quaternion order is 1,
+    // the top ambient and the fullspace are the same -- they are the
+    // space with new level 1, i.e. the entire space (new + old).
+    // (When the quaternion order has nontrivial discriminant, the new level
+    // of the ambient space is the discriminant of the order.)
+    //
+    // Anyways, in the discriminant 1 case, N is just the level and MA is the total
+    // space. This makes sense because we compute Hecke matrices on the full space
+    // and then restrict to the space we're working with.
     disc := make_ideal(Discriminant(QuaternionOrder(M)));
     MA := TopAmbient(M);
     assert disc eq make_ideal(NewLevel(MA));
@@ -478,7 +488,7 @@ function operator(M, p, op : hack:=true)
 
     Gamma := FuchsianGroup(QuaternionOrder(M));
     case op:
-      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=false, shapiro_trick:=true);
+      when "Hecke" : Tp_big, p_rep := GetHeckeMatrix(M, p : SaveAndLoad:=true, shapiro_trick:=false);
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
@@ -531,11 +541,15 @@ function operator(M, p, op : hack:=true)
       when "DegDownp" : M`DegDownp[p] := Tp;
     end case;
   end if;
+  print "Tp", Tp;
+  print "Norm(p_rep)", Norm(p_rep);
   return Tp, p_rep;
 end function;
 
 // we compute a Hecke operator to force magma to compute the space
 procedure forceSpaceComputation(M)
+    // TODO abhijitm remove later, this is just for debugging
+    assert IsDefinite(Algebra(QuaternionOrder(M)));
     K := BaseField(M);
     p := PrimeIdealsOverPrime(K, 2)[1];
     _ := HeckeOperator(M,p);

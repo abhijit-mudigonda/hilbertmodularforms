@@ -226,6 +226,7 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
     S := HMFGrossencharsTorsorSet(X);
   end if;
 
+  print "size of torsor, before removing trivial things", #S;
   GK, mK := RayClassGroup(N, [1 .. Degree(BaseField(K))]);
   ans := [* *];
   for psi in S do

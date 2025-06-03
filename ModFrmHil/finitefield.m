@@ -332,7 +332,15 @@ that are irreducible as Hecke modules, and returns this list of new spaces }
 
     if (not hack) or not IsFinite(K) then
       // decomposition should be over the true hecke field (= Q for parallel weight)
-      chi := ChangeRing(chi, minimal_hecke_matrix_field(M));
+      print "basering chi", BaseRing(chi);
+      print "mhmf(M)", minimal_hecke_matrix_field(M);
+      print "basefield chi", BaseField(BaseRing(chi));
+      print "chi", chi;
+      IsSubfield(minimal_hecke_matrix_field(M), BaseField(BaseRing(chi)));
+      // assert IsIsomorphic(minimal_hecke_matrix_field(M), BaseField(BaseRing(chi)));
+      if IsSubfield(BaseRing(chi), minimal_hecke_matrix_field(M)) then
+        chi := ChangeRing(chi, minimal_hecke_matrix_field(M));
+      end if;
     end if;
 
     vprintf ModFrmHil: "Factoring the polynomial: ";
@@ -508,6 +516,9 @@ that are irreducible as Hecke modules, and returns this list of new spaces }
         "WARNING: Method 3 was selected for Hecke eigenform computations!!!";
         "         It's a very inefficient method (just warm-up for method 4)";
       end if;
+
+      // TODO abhijitm for debug, I'm pretty sure this never gets run
+      assert 0 eq 1;
 
       ND := [* *];
 

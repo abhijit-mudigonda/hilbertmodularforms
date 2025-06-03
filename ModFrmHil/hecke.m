@@ -11,7 +11,7 @@ function basis_of_plus_subspace(M)
   Gamma := FuchsianGroup(QuaternionOrder(M));
   N := Level(M) / make_ideal(Discriminant(QuaternionOrder(M)));
   assert N eq Level(M);
-  T := GetHeckeMatrix(M, "Infinity" : SaveAndLoad:=false, shapiro_trick:=true);
+  T := GetHeckeMatrix(M, "Infinity" : SaveAndLoad:=true, shapiro_trick:=false);
   // T := HeckeMatrix2(Gamma, N, "Infinity", Weight(M), DirichletCharacter(M));
   if T cmpeq [] then 
     T := Matrix(Integers(), 0, 0, []); 

@@ -1057,6 +1057,8 @@ intrinsic QuaternionOrder(M::ModFrmHil) -> AlgAssVOrd
   if assigned M`QuaternionOrder then 
     return M`QuaternionOrder;
   elif assigned M`Ambient then
+    // The quaterion order is "owned" by the ambient space,
+    // and (I think?) is not assigned unless M is an ambient space.
     return QuaternionOrder(M`Ambient);
   end if;
 

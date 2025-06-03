@@ -279,6 +279,8 @@ intrinsic IsNonempty(X::HMFGrossencharsTorsor) -> BoolElt, GrpDrchNFElt
           psi := (&*[Dv.j^(u[j]) : j in [1 .. #D_gens]])^-1;
           X`MarkedDrchChar := AssociatedPrimitiveCharacter(psi);
           for eps in units_gens do
+            print StrongMultiply(
+                  [* EvaluateNoncompactInfinityType(X, eps), X`MarkedDrchChar(eps) *]);
             require IsOne(StrongMultiply(
                   [* EvaluateNoncompactInfinityType(X, eps), X`MarkedDrchChar(eps) *]
                   )) : "The marked character isn't the inverse of the infinity type";
