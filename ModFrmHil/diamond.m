@@ -1,8 +1,3 @@
-import !"Geometry/ModFrmHil/definite.m":
-  AtkinLehnerDefiniteBig,
-  DegeneracyDown1DefiniteBig,
-  DegeneracyDownpDefiniteBig,
-  HeckeOperatorDefiniteBig;
 import !"Geometry/ModFrmHil/hackobj.m" :
   IsBianchi,
   TopAmbient;
@@ -17,6 +12,11 @@ import !"Geometry/ModFrmHil/hecke.m" :
 
 import "hackobj.m" : HMF0;
 import "hecke_field.m" : hecke_matrix_field, WeightRepresentation;
+import "definite.m":
+  AtkinLehnerDefiniteBig,
+  DegeneracyDown1DefiniteBig,
+  DegeneracyDownpDefiniteBig,
+  HeckeOperatorDefiniteBig;
 
 forward DiamondOperatorDefiniteBig;
 

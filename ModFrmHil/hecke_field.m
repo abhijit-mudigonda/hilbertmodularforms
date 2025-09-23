@@ -1,6 +1,3 @@
-import !"Geometry/ModFrmHil/definite.m":
-  _ResidueMatrixRing,
-  HMSDF;
 import !"Geometry/ModFrmHil/hackobj.m" :
   Ambient,
   BMF_with_ambient,
@@ -29,6 +26,9 @@ import "hackobj.m" : HMF0;
 
 import "weight_rep.m" : weight_map_arch, is_paritious;
 import "hecke.m" : get_image_of_eps_nonparit;
+import "definite.m":
+  _ResidueMatrixRing,
+  HMSDF;
 
 forward WeightRepresentation;
 
