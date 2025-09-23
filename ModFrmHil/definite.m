@@ -23,158 +23,87 @@ debug := false;
 
 /* Here we define several record formats. */
 
-ProjectiveLineData:=recformat<FD:SeqEnum,                  // This is a fundamental domain for the the
-                                                           // for the action of the unit group on 
-							   // in some quaternion algebra on P^1(O/n).
+ProjectiveLineData:=recformat<
+  FD:SeqEnum,                  // This is a fundamental domain for the the
+                               // for the action of the unit group on 
+                               // in some quaternion algebra on P^1(O/n).
 
-                              Stabs:SeqEnum,               // Generators of the group of stabilizers, for each element in FD.
+  Stabs:SeqEnum,               // Generators of the group of stabilizers, for each element in FD.
 
-                              StabOrders:SeqEnum,          // Order of the group of stabilizers, for each element in FD.
+  StabOrders:SeqEnum,          // Order of the group of stabilizers, for each element in FD.
 
-                              P1List:SetIndx,              // Elements of the projective line P^1(O/n).
+  P1List:SetIndx,              // Elements of the projective line P^1(O/n).
 
-                              P1Rep:UserProgram,           // Function sending [u,v] to an element of P1List.
+  P1Rep:UserProgram,           // Function sending [u,v] to an element of P1List.
 
-			      Lookuptable:Assoc,           // Array indexed by P1List with values < FD index, unit index >
+  Lookuptable:Assoc,           // Array indexed by P1List with values < FD index, unit index >
 
-			      splitting_map,               // The splitting map mod n for the quaternion order.
+  splitting_map,               // The splitting map mod n for the quaternion order.
 
-             		      Level:RngOrdIdl>;            // The level.
-                              
+  Level:RngOrdIdl>;            // The level.
 
-ModFrmHilDirFact:=recformat<PLD,                           // A record with format ProjectiveLineData.
 
-                            CFD:SetIndx,                   // Contributing elements of FD.
+ModFrmHilDirFact:=recformat<
+  PLD,                         // A record with format ProjectiveLineData.
 
-                            basis_matrix:Mtrx,             // The rows of this matrix provide a basis for
-                                                           // the direct factor of the HMS.
+  CFD:SetIndx,                 // Contributing elements of FD.
 
-                            basis_matrix_inv:Mtrx,         // basis_matrix*basis_matrix_inv=id.
+  basis_matrix:Mtrx,           // The rows of this matrix provide a basis for
+                               // the direct factor of the HMS.
 
-                            weight_rep:Map,                // The splitting map B -> M_2(K)^g -> GL(V_k) by 
-			    				   // which the quaternion algebra acts on the 
-							   // weight space V_k.
+  basis_matrix_inv:Mtrx,       // basis_matrix*basis_matrix_inv=id.
 
-                            weight_dimension:RngIntElt,    // Dimension of weight space.                
-            
-                            weight_base_field,             // The base field of the weight representation.
+  weight_rep:Map,              // The splitting map B -> M_2(K)^g -> GL(V_k) by 
+                               // which the quaternion algebra acts on the 
+                               // weight space V_k.
 
-			    max_order_units:SeqEnum>;      // The unit group in the maximal order.
+  weight_dimension:RngIntElt,  // Dimension of weight space.                
 
-////////////////////////////////////////////////////////////////////////////
-// Low-level interface to the raw definite spaces.
-// This is a quick first draft, and may change completely in later versions.
+  weight_base_field,           // The base field of the weight representation.
 
-hmf_raw_definite_record := recformat< QuaternionOrder, 
-                                      EichlerLevel,
-                                      SplittingMap,
-                                      RightIdealClassReps, 
-                                      Basis
-                                    >;
+  max_order_units:SeqEnum>;    // The unit group in the maximal order.
 
-forward HilbertModularSpaceDirectFactors;
+hmf_raw_definite_record := recformat< 
+  QuaternionOrder, 
+  EichlerLevel,
+  SplittingMap,
+  RightIdealClassReps, 
+  Basis>;
 
-intrinsic InternalHMFRawDataDefinite(M::ModFrmHil : Verbose:=true) -> Rec
-{For a space M of Hilbert modular forms computed using the definite algorithm,
-this provides access to the underlying space of quaternionic forms.
-WARNING: this may change completely in later versions of Magma!!!}
+//////////////////////////////////////////////////////////////////////////////
+//
+// SECTION 1: Helper/supporting functions for computing quaternionic cusp forms
+//
+//////////////////////////////////////////////////////////////////////////////
 
-  F := BaseField(M);
-  ZF := Integers(F);
-  QO := QuaternionOrder(M);
-  N := Level(M);
-  k := Weight(M);
-  weight2 := Seqset(k) eq {2};
-
-  require IsDefinite(M) : 
-         "The given space is not computed with the definite algorithm";
-  require weight2 : "Currently available only for parallel weight 2";
-  require not assigned M`Ambient :
-         "This space is computed as a subspace of another space: use M`Ambient";
-
-  // Compute the space, if not already done
-  HMDFs := HilbertModularSpaceDirectFactors(M);
-  PLD1 := HMDFs[1]`PLD;
-
-  Rec := rec< hmf_raw_definite_record | >;
-
-  Rec`RightIdealClassReps := get_rids(M);
-  Rec`EichlerLevel := PLD1`Level;
-  Rec`SplittingMap := PLD1`splitting_map;
-
-  if Minimum(N) ne 1 then 
-    Rec`Basis :=  [* HMDF`PLD`FD : HMDF in HMDFs *];
-  end if;
-
-  if Verbose then
-    printf "\nInternal data for:\n%o\n\n", M; 
-    if Minimum(N) eq 1 then
-      print "The basis is given by \'RightIdealClassReps\'."; 
-    else
-      printf "The basis is given by \'Basis\': this is a list containing,\n"*
-             "for each ideal in \'RightIdealClassReps\', a sequence of\n"*
-             "elements (expressed as 2 x 1 matrices) in P^1 of %O modulo\n%o\n", 
-             ZF, "Minimal", Rec`EichlerLevel;
-    end if;
-    if weight2 then
-      printf "\nThe space is larger than the space of cusp forms:\n"*
-             "it contains the %o Eisenstein series of level 1.\n", 
-             #NarrowClassGroup(ZF);
-    end if;
-    printf "\n";
-  end if;
-
-  return Rec;
-end intrinsic;
-
-forward HeckeOperatorDefiniteBig;
-
-intrinsic InternalHMFRawHeckeDefinite(M::ModFrmHil, p::RngOrdIdl) -> Mtrx
-{The Hecke operator T_p on the raw space containing M}
-
-  require not assigned M`Ambient :
-         "This space is computed as a subspace of another space: use M`Ambient";
-
-  return HeckeOperatorDefiniteBig(M, p);
-end intrinsic;
-
-intrinsic HeckeMatrixRaw(M::ModFrmHil, p::RngOrdIdl) -> Mtrx
-{"}//"
-  require not assigned M`Ambient :
-         "This space is computed as a subspace of another space: use M`Ambient";
-
-  return HeckeOperatorDefiniteBig(M, p);
-end intrinsic;
-
-////////////////////////////////////////////////////////////////////////////
+declare attributes AlgAssVOrd: ResidueMatrixRings;
 
 function IsSIntegral(x,S) // (x::FldNumElt, S::SeqEnum[RngOrdIdl]) -> BoolElt, RngOrdElt, RngOrdElt
 //  Given an element x in a number field F and a sequence of primes S in F, this determines whether x is
 //  S-integral or not. If so, returns two algebraic integers a and b such that x=a/b, with b an S-unit.
 
-   error if not forall{p: p in S|IsPrime(p)}, "The sequence of ideals in second argument must be prime!";
-   
-   if forall{p: p in S|Valuation(x, p) ge 0} then
-      F:=Parent(x); O:=Integers(F);
-      a:=Numerator(x); d:=Denominator(x);
-      val_seq:=[-Valuation(O!d, p): p in S];
-      n:=WeakApproximation(S, val_seq);
-//     assert (a*n in O) and forall{p: p in S|Valuation(d*n, p) eq 0};
-      return true, O!(a*n), O!(d*n);
-   else
-      return false, _, _;
-   end if; 
+  error if not forall{p: p in S|IsPrime(p)}, "The sequence of ideals in second argument must be prime!";
+  
+  if forall{p: p in S|Valuation(x, p) ge 0} then
+    F:=Parent(x); O:=Integers(F);
+    a:=Numerator(x); d:=Denominator(x);
+    val_seq:=[-Valuation(O!d, p): p in S];
+    n:=WeakApproximation(S, val_seq);
+//   assert (a*n in O) and forall{p: p in S|Valuation(d*n, p) eq 0};
+    return true, O!(a*n), O!(d*n);
+  else
+    return false, _, _;
+  end if; 
 end function;
-
 
 function SIntegralPseudoBasis(OH,S) // (OH::AlgAssVOrd, S::SeqEnum) -> SeqEnum
 //  Given a maximal order OH and a sequence of prime ideals S, this returns a new pseudo-basis 
 //   <I_i, e_i>, i=1,..,4, such that v_p(I_i)>=0 for all p in S. 
    
-   error if not forall{p: p in S|IsPrime(p)}, "Elements in the second argument must be primes!";
+  error if not forall{p: p in S|IsPrime(p)}, "Elements in the second argument must be primes!";
 
-   OHB:=PseudoBasis(OH); H:=Algebra(OH); O:=Order(OHB[1][1]); NOHB:=[];
-   for l:=1 to 4 do
+  OHB:=PseudoBasis(OH); H:=Algebra(OH); O:=Order(OHB[1][1]); NOHB:=[];
+  for l:=1 to 4 do
       d:=Denominator(OHB[l][1]);
       T:=[p: p in SequenceToSet([s[1]: s in Factorization(O!!(d*OHB[l][1]))] 
                                                         cat [s[1]: s in Factorization(d*O)] cat S)];
@@ -182,549 +111,385 @@ function SIntegralPseudoBasis(OH,S) // (OH::AlgAssVOrd, S::SeqEnum) -> SeqEnum
       scal:=WeakApproximation(T, [Valuation(OHB[l][1], pr): pr in T]);
       assert (scal in OHB[l][1]); // and (scal*OHB[l][2] in OH);
                                   // This scaling factor must belong to the ideal in the pseudo-basis.
-      Append(~NOHB, <scal^-1*OHB[l][1], scal*OHB[l][2]>);
-   end for;
-   return NOHB;
+    Append(~NOHB, <scal^-1*OHB[l][1], scal*OHB[l][2]>);
+  end for;
+  return NOHB;
 end function;
-
 
 function QuotientSplittingData0(OH, OHB, pr, e)
-   // Given a maximal order OH, a prime ideal pr and an integer e, this return a sequence of matrices
-   // (M_i) in M_2(OK/pr^e) which is a basis of the reduction OH\otimes OK/pr^e\cong M_2(OK/pr^e) as 
-   // an (OK/pr^e)-algebra.
+  // Given a maximal order OH, a prime ideal pr and an integer e, this return a sequence of matrices
+  // (M_i) in M_2(OK/pr^e) which is a basis of the reduction OH\otimes OK/pr^e\cong M_2(OK/pr^e) as 
+  // an (OK/pr^e)-algebra.
 
-   assert IsPrime(pr); 
-   assert forall{m: m in [1..4] | Valuation(OHB[m][1], pr) ge 0};
+  assert IsPrime(pr); 
+  assert forall{m: m in [1..4] | Valuation(OHB[m][1], pr) ge 0};
 
-   OK:=Order(pr); R:=quo<OK|pr^e>; 
-   embed_mats:=[];
-   _, fp2, gp2:=pMatrixRing(OH, pr: Precision:=e+20);
-   for m:=1 to 4 do    
-      mat_ents:=Eltseq(fp2(OHB[m][2]));
-      mat:=Matrix(OK, 2, [OK!(R!(OK!(s@@gp2))): s in mat_ents]);
-      Append(~embed_mats, mat);
-   end for;
+  OK:=Order(pr); R:=quo<OK|pr^e>; 
+  embed_mats:=[];
+  _, fp2, gp2:=pMatrixRing(OH, pr: Precision:=e+20);
+  for m:=1 to 4 do    
+    mat_ents:=Eltseq(fp2(OHB[m][2]));
+    mat:=Matrix(OK, 2, [OK!(R!(OK!(s@@gp2))): s in mat_ents]);
+    Append(~embed_mats, mat);
+  end for;
 
-   return embed_mats;
+  return embed_mats;
 end function;
-
-
 
 function QuotientSplittingData(OH, d)
-   // Given a maximal order OH and an ideal d, this return a sequence of matrices (M_i) in M_2(OK/d) which 
-   // form a basis of the reduction OH\otimes (OK/d)\cong M_2(OK/d) as an (OK/d)-algebra.
+  // Given a maximal order OH and an ideal d, this return a sequence of matrices (M_i) in M_2(OK/d) which 
+  // form a basis of the reduction OH\otimes (OK/d)\cong M_2(OK/d) as an (OK/d)-algebra.
 
-   if Minimum(d) eq 1 then
-      OHBd:=PseudoBasis(OH); splitting_mats:=[MatrixRing(Order(d), 2)!1: m in [1..4]];
-   else 
-      OK:=Order(d); div_fact:=Factorization(d); Sd:=[s[1]: s in div_fact];
-      div_seq:=[div_fact[m][1]^div_fact[m][2]: m in [1..#div_fact]];
-      OHBd:=SIntegralPseudoBasis(OH, Sd);
-      embed_mats:=[QuotientSplittingData0(OH, OHBd, div_fact[l][1], div_fact[l][2]): l in [1..#div_fact]];
-      splitting_mats:=[];
-      for l:=1 to 4 do
-         split_mat_ents:=[];
-         for m:=1 to 4 do
-            elt_red_comp:=[Eltseq(embed_mats[n][l])[m]: n in [1..#div_fact]];
-            Append(~split_mat_ents, CRT(elt_red_comp, div_seq));
-         end for;
-         Append(~splitting_mats, Matrix(OK, 2, split_mat_ents));
+  if Minimum(d) eq 1 then
+    OHBd:=PseudoBasis(OH); splitting_mats:=[MatrixRing(Order(d), 2)!1: m in [1..4]];
+  else 
+    OK:=Order(d); div_fact:=Factorization(d); Sd:=[s[1]: s in div_fact];
+    div_seq:=[div_fact[m][1]^div_fact[m][2]: m in [1..#div_fact]];
+    OHBd:=SIntegralPseudoBasis(OH, Sd);
+    embed_mats:=[QuotientSplittingData0(OH, OHBd, div_fact[l][1], div_fact[l][2]): l in [1..#div_fact]];
+    splitting_mats:=[];
+    for l:=1 to 4 do
+      split_mat_ents:=[];
+      for m:=1 to 4 do
+        elt_red_comp:=[Eltseq(embed_mats[n][l])[m]: n in [1..#div_fact]];
+        Append(~split_mat_ents, CRT(elt_red_comp, div_seq));
       end for;
-   end if;
-   return OHBd, splitting_mats;
+      Append(~splitting_mats, Matrix(OK, 2, split_mat_ents));
+    end for;
+  end if;
+  return OHBd, splitting_mats;
 end function;
-
-
-// ResidueMatrixRing: the intrinsic returns a Map, not a UserProgram
-// (but within package code, avoid this extra layer of time-wasting: 
-//  use _ResidueMatrixRing instead)
-
-/* This is now in C
-function InternalResidueMatrixRingSub(xxx, d, mats, cobi)
-   // d    = RngOrdIdl with order OK
-   // mats = sequence of 2x2 matrices over OK
-   // cobi = 4x4 matrix over K
-   // q (below) = AlgQuatElt over K
-
-   "WARNING: Not using internal InternalResidueMatrixRingSub!!!";
-
-   OK := Order(d);
-   K  := NumberField(OK);
-   Rd := quo<OK|d>;
-
-   // Use coercion OK!Rd!x because x may have denominators (prime to d)
-
-   function split_map(q)
-      c := Vector(K, Eltseq(q)) * cobi;
-      mat := Matrix(OK, 2, 2, []);
-      for l := 1 to 4 do
-         mat +:= (OK!Rd!c[l]) * mats[l];
-      end for;
-      return mat;
-   end function;
-
-   return split_map;
-end function;
-*/
 
 function _ResidueMatrixRing(OH, d)
 
-   K := NumberField(Order(d));
-   OHB, mats := QuotientSplittingData(OH, d); 
-   cobi := Matrix(K, [Eltseq(s[2]): s in OHB]) ^ -1;
+  K := NumberField(Order(d));
+  OHB, mats := QuotientSplittingData(OH, d); 
+  cobi := Matrix(K, [Eltseq(s[2]): s in OHB]) ^ -1;
 
-   return InternalResidueMatrixRingSub(Algebra(OH), d, mats, cobi);
+  return InternalResidueMatrixRingSub(Algebra(OH), d, mats, cobi);
 end function;
-
-declare attributes AlgAssVOrd: ResidueMatrixRings;
 
 intrinsic ResidueMatrixRing(OH::AlgAssVOrd, d::RngOrdIdl) -> AlgMat, Map
-   {Given a maximal order OH in a quaternion algebra H over a number field F, 
-    and an integral ideal d of the ring of integers O of F that is coprime to 
-    the discriminant of OH, this returns a residue map OH -> Mat_2(O/d).  This map 
-    can be applied to any element of H that is integral locally at primes dividing d.}
+  {Given a maximal order OH in a quaternion algebra H over a number field F, 
+   and an integral ideal d of the ring of integers O of F that is coprime to 
+   the discriminant of OH, this returns a residue map OH -> Mat_2(O/d).  This map 
+   can be applied to any element of H that is integral locally at primes dividing d.}
 
-   // check cache
-   if not assigned OH`ResidueMatrixRings then
-      OH`ResidueMatrixRings := AssociativeArray(PowerIdeal(BaseRing(OH)));
-   end if;
-   bool, m := IsDefined(OH`ResidueMatrixRings, d);
-   if bool then 
-      return Codomain(m), m;
-   end if;
+  // check cache
+  if not assigned OH`ResidueMatrixRings then
+    OH`ResidueMatrixRings := AssociativeArray(PowerIdeal(BaseRing(OH)));
+  end if;
+  bool, m := IsDefined(OH`ResidueMatrixRings, d);
+  if bool then 
+    return Codomain(m), m;
+  end if;
 
-   H := Algebra(OH);
+  H := Algebra(OH);
 
-   require BaseRing(OH) eq Order(d) : 
-          "The second argument must be an ideal of the base ring of the first argument";
-   require Norm(d + Discriminant(H)) eq 1 : 
-          "The quaternion order does not split at the given ideal";
-   
-   split_map := _ResidueMatrixRing(OH, d);
-
-   MO2 := MatrixRing(BaseRing(OH), 2);
-   m := map< H -> MO2 | q :-> split_map(q) >;
-
-   OH`ResidueMatrixRings[d] := m;
-   return MO2, m;
-end intrinsic;
-
-
-
-/* The following two routines define the weight representation of a quaternion order OH modulo a prime pr 
-   in the base maximal order O of OH. This is a map OH -> GL(2,F) -> GL(V), where F is an extension of
-   O/pr. The map is then extended to all pr-integral elements in H. */
-
-function weight_rep_pr(q, pr, hp, F, split_matpr, a_seq, b_seq)
-   if IsSIntegral(Trace(q), [pr]) and IsSIntegral(Norm(q), [pr]) then
-      weight_output:=MatrixRing(F, 1)!1; l_F:=Characteristic(F);
-      matq:=Matrix(F, 2, [hp(s): s in Eltseq(split_matpr(q))]);
-      for l2:=1 to #b_seq do
-         frob:=l_F^(l2-1); matq1:=Matrix(F, 2, [a^frob: a in Eltseq(matq)]);
-         matq2:=Determinant(matq1)^a_seq[l2]*SymmetricPower(matq1, b_seq[l2]-1);
-         weight_output:=TensorProduct(weight_output, matq2);
-      end for;
-      return weight_output;
-   else
-      return 0;
-   end if;
-end function;
-
-
-
-/* Here we define the weight representation in characteristic zero. 
-
-   Representation at the ith place is det^(m[i]) tensor Sym^(n[i]). 
-   Here n[i] = k[i] - 2, and n[i] + 2*m[i] = C (a constant).
-   We take C = Max(k) - 2.  The central character is z :-> Norm(z)^C.
-*/
-
-intrinsic IsArithmeticWeight(F::Fld, k::SeqEnum[RngIntElt] : CentralCharacter:="default")
-       -> BoolElt, SeqEnum, SeqEnum
-   {Given a totally real number field F and a sequence k of integers, this determines whether 
-    k is an arithmetic weight for F. 
-    If so, integer sequences m and n are returned, and also an integer C.
-    The representation on the ith infinite place of F is det^(m[i]) tensor Sym^(n[i]).
-    This has central character t :-> Norm(t)^C }
+  require BaseRing(OH) eq Order(d) : 
+         "The second argument must be an ideal of the base ring of the first argument";
+  require Norm(d + Discriminant(H)) eq 1 : 
+         "The quaternion order does not split at the given ideal";
   
-   require Type(F) eq FldRat or ISA(Type(F), FldAlg) and IsAbsoluteField(F) :
-          "The first argument should be Q or an absolute extension of Q";
-   require Degree(F) eq #k: 
-          "The number of components of k must equal the degree of the base field";
-  if Type(CentralCharacter) eq RngIntElt then
-     C := CentralCharacter;
-     kmax := Max(k);
-     require C ge kmax - 2 and IsEven(C - kmax) : 
-            "Invalid value given for CentralCharacter";
-   else
-     C := Max(k) - 2;
-   end if;
+  split_map := _ResidueMatrixRing(OH, d);
 
-   n := [k[i] - 2 : i in [1..#k]];
+  MO2 := MatrixRing(BaseRing(OH), 2);
+  m := map< H -> MO2 | q :-> split_map(q) >;
 
-   if not forall{m: m in k| IsEven(m) and (m ge 2)} and
-      not forall{m: m in k| IsOdd(m) and (m ge 2)}
-   then
-     // TODO abhijitm this is terrible practice
-     return false, _, n, C;
-   end if;
-   m := [Integers()| (C - n[i])/2 : i in [1..#k]];
-
-//printf "Arithmetic weight: m = %o, n = %o, C = %o\n", m, n, C;
-   return true, m, n, C;
+  OH`ResidueMatrixRings[d] := m;
+  return MO2, m;
 end intrinsic;
-
-// Canonical representatives of elements of the projective line $P^1(OK/level)$ 
-
-// For a vector v = (a,b) in OK^2, this determines whether v defines an element in P^1(OK/d). 
-// Returns a representative (a0, b0) such that, writing d = d1 * d2 where d1 = gcd(d,aa), 
-// we have a0 == 1 mod d1 and b0 == 1 mod d2
-
-// TO DO: The third argument is unused!
-
-function _ProjectiveLineRepresentative(v, d, xxx : check1 := true)
-
-   OK:=Order(d); 
-   if check1 and Minimum(d) eq 1 then
-      return true, Matrix(OK,2,1,[0,0]), OK!1;
-   end if;
-
-   // the most frequent case is d = d1, the least frequent is d = d2
-
-   aa,bb:=Explode(Eltseq(v));
-   gcd1 := aa*OK + d; 
-   d1_eq_d := Minimum(gcd1) eq 1;
-   if d1_eq_d then
-      d2:=1*OK;
-      d1:=d; 
-   elif gcd1 + bb*OK ne 1*OK then
-      return false, _, _;
-   else
-      d2:=&*[p[1]^p[2] : p in Factorization(d) | Valuation(aa,p[1]) ne 0];
-      d1:=OK!!(d/d2);
-   end if;
-
-   if d1_eq_d then
-      s:= aa mod d;  b:= (bb*Modinv(s,d)) mod d;  a:= OK!1;
-   elif d2 eq d then
-      s:= bb mod d;  a:= (aa*Modinv(s,d)) mod d;  b:= OK!1;
-   else
-      a1:= aa mod d1;  b1:= (bb*Modinv(a1,d1)) mod d1;
-      b2:= bb mod d2;  a2:= (aa*Modinv(b2,d2)) mod d2;
-      a:=CRT(d1, d2, OK!1, a2);
-      b:=CRT(d1, d2, b1, OK!1);
-      s:=CRT(d1, d2, a1,   b2);
-      // this is crucial (CRT satisfies this):
-      // assert a eq a mod d; assert b eq b mod d; assert s eq s mod d;
-   end if;
-
-   return true, Matrix(OK, 2, 1, [a,b]), s;
-end function;
-
 
 function ProjectionMap(v, d, Rd, P1rep)
-   // Given an element in the projetive space $P^(OK/level)$, and a divisor $d$ of $level$, this returns
-   // its projection onto $P^1(OK/d)$.
+  // Given an element in the projetive space $P^(OK/level)$, and a divisor $d$ of $level$, this returns
+  // its projection onto $P^1(OK/d)$.
 
-   OK:=Order(d); 
-   mat:= Matrix(OK, 2, 1, [OK!(Rd!s): s in Eltseq(v)]); // TO DO: skip?
-   _, mat:=P1rep(mat, false, false);
-   return mat;
+  OK:=Order(d); 
+  mat:= Matrix(OK, 2, 1, [OK!(Rd!s): s in Eltseq(v)]); // TO DO: skip?
+  _, mat:=P1rep(mat, false, false);
+  return mat;
 end function;
-
 
 /* The following routines compute the orbits of a unit group in a quaternion order acting on a
    projective line $P^1(O/d)$ for some ideal d in the ring of integer of a number field. Also, we compute
    the corresponding coinvariant module that defines a direct factor the space of Hilbert modular forms.*/
 
-function _ProjectiveLine(d) // RngOrdIdl -> SetIndx
-//  Given an integral ideal d in the ring of integers O_K of a number field K, 
-//  this returns the projective line P^1(O_K/d)
-
-   if Minimum(d) eq 1 then
-      return {@ Matrix(Order(d), 2, 1, [0,0]) @};
-   end if;
-
-   proj_card:=1; d_facts:=Factorization(d);
-   for s in d_facts do
-      proj_card:=proj_card*(Norm(s[1])+1)*Norm(s[1])^(s[2]-1);
-   end for;
-
-   OK:=Order(d); R, h:=quo<OK|d>; div_seq:=Divisors(d);
-   _, n_seq:=residue_class_reps(d);
-   Rset:=[OK!(R![s[m]: m in [1..#s]]): s in Set(CartesianProduct(<[0..n_seq[l]-1]: l in [1..#n_seq]>))];
-   proj:=[Matrix(OK, 2, 1, [1, a]): a in Rset];
-   for A in div_seq do
-      if (Norm(A) ne 1) and (GCD(A, OK!!(d*A^-1)) eq 1*OK) then
-         radA:=Radical(A); 
-         d_fact:=Factorization(A);
-         B:=OK!!(A*radA^-1); 
-         C:=OK!!(d*A^-1); 
-         _, nB:=residue_class_reps(B); 
-         _, nC:=residue_class_reps(C);
-         RB:=[OK![s[m]: m in [1..#s]]: s in Set(CartesianProduct(<[0..nB[l]-1]: l in [1..#nB]>))];
-         u:=OK!WeakApproximation([s[1]: s in d_fact], [1: l in [1..#d_fact]]);
-         RC:=[OK![s[m]: m in [1..#s]]: s in Set(CartesianProduct(<[0..nC[l]-1]: l in [1..#nC]>))]; 
-         S:=[[OK!(R!CRT([a*u,1], [A,C])), OK!(R!CRT([1,b], [A,C]))]: a in RB, b in RC];
-         proj:=proj cat [Matrix(OK, 2, 1, s): s in S];
-      end if;
-   end for;
-   assert #proj eq proj_card;
-   return {@ p : p in Sort(proj) @};
-end function;
-
 function minimal_generators(G)
-   gens0 := Generators(G);
-   gens := [];
-   S := sub<G | >;
-   for g in gens0 do 
-      if g notin S then
-         Append(~gens, g);
-         S := sub<G | gens>;
-         if S eq G then
-            break g;
-         end if;
+  gens0 := Generators(G);
+  gens := [];
+  S := sub<G | >;
+  for g in gens0 do 
+    if g notin S then
+      Append(~gens, g);
+      S := sub<G | gens>;
+      if S eq G then
+        break g;
       end if;
-   end for;
-   return gens;
+    end if;
+  end for;
+  return gens;
 end function;
 
 function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs:=true)
-   // d is an ideal in the ring of integers of a number field, 
-   // P1 is ProjectiveLine(d) which comes with the function P1rep,
-   // unit_map is the map returned by UnitGroup for a quaternion order O,
-   // units contains its images, in a fixed ordering,
-   // split_map is the map to the ResidueMatrixRing(O,d).
-   // Returns the orbits of the unit group acting on P1, 
-   // and the stabilizers of the first element in each orbit.
+  // d is an ideal in the ring of integers of a number field, 
+  // P1 is ProjectiveLine(d) which comes with the function P1rep,
+  // unit_map is the map returned by UnitGroup for a quaternion order O,
+  // units contains its images, in a fixed ordering,
+  // split_map is the map to the ResidueMatrixRing(O,d).
+  // Returns the orbits of the unit group acting on P1, 
+  // and the stabilizers of the first element in each orbit.
   
-   OK := Order(d); 
-   Rd := quo<OK|d>;
-   _, n_seq := residue_class_reps(d);
+  OK := Order(d); 
+  Rd := quo<OK|d>;
 
-   U := Domain(unit_map);
-   UU := Universe(units);
-   assert Type(UU) eq AlgQuat;
-   assert units[1] in {UU|1,-1};
-   split_units := [u @ split_map : u in units];
+  U := Domain(unit_map);
+  UU := Universe(units);
+  assert Type(UU) eq AlgQuat;
+  assert units[1] in {UU|1,-1};
+  split_units := [u @ split_map : u in units];
 
-   Lookuptable := AssociativeArray(P1);
+  Lookuptable := AssociativeArray(P1);
 
-   if Minimum(d) eq 1 then  // the trivial case
-      Lookuptable[P1[1]] := < 1, 1 >;
-      PLD := rec< ProjectiveLineData |
-                  Level := d,
-                  P1List := P1,
-                  P1Rep := P1rep,
-                  FD := [P1[1]],
-                  Lookuptable := Lookuptable,
-                  StabOrders := [#units],
-                  splitting_map:=split_map 
-                >;
-      if DoStabs then
-         PLD`Stabs := [[ [* UU!(u@unit_map), 1 *]
-                       : u in minimal_generators(sub< U | [u@@unit_map : u in units] >)]];
-      end if;
-      return PLD;
-   end if;
+  if Minimum(d) eq 1 then  // the trivial case
+    Lookuptable[P1[1]] := < 1, 1 >;
+    PLD := rec< ProjectiveLineData |
+                Level := d,
+                P1List := P1,
+                P1Rep := P1rep,
+                FD := [P1[1]],
+                Lookuptable := Lookuptable,
+                StabOrders := [#units],
+                splitting_map:=split_map 
+              >;
+    if DoStabs then
+      PLD`Stabs := [[ [* UU!(u@unit_map), 1 *]
+                     : u in minimal_generators(sub< U | [u@@unit_map : u in units] >)]];
+    end if;
+    return PLD;
+  end if;
 
-   FD := [Universe(P1)| ]; 
-   Stabs := [];
-   StabOrders := [Integers()| ];
+  FD := [Universe(P1)| ]; 
+  Stabs := [];
+  StabOrders := [Integers()| ];
 
-   elts := Set(P1);
+  elts := Set(P1);
  
-   vprintf ModFrmHil, 2: "ProjectiveLineOrbits: "; 
-   vtime ModFrmHil, 2:
+  vprintf ModFrmHil, 2: "ProjectiveLineOrbits: "; 
+  vtime ModFrmHil, 2:
 
-   while not IsEmpty(elts) do 
-      e := Rep(elts);
-      Append(~FD, e);
-      orbit := {};
-      stab := [];
-      // run through images of e under units,
-      // TO DO: skip acting by units[1] = +-1
-      for j := 1 to #units do
-         e0 := split_units[j] * e;
-         _, e1 := P1rep(e0, false, false);
-         if e1 notin orbit then
-            Exclude(~elts, e1);
-            Include(~orbit, e1);
-            Lookuptable[e1] := < #FD, j >;
-         elif e1 eq e then
-            Append(~stab, [* units[j] *]);
-         end if;
-      end for;
-
-      // assert #units eq (1+#stab) * #orbit;
-      Append(~StabOrders, 1+#stab);
-
-      if DoStabs then
-         // want stab to contain just generators of the stabilizer
-         stab_U := [s[1] @@ unit_map : s in stab];
-         stab_U_gens := minimal_generators(sub< U | stab_U >);
-         stab_gens := [stab[i] : i in [1..#stab] | stab_U[i] in stab_U_gens];
-         Append(~Stabs, stab_gens);
+  while not IsEmpty(elts) do 
+    e := Rep(elts);
+    Append(~FD, e);
+    orbit := {};
+    stab := [];
+    // run through images of e under units,
+    // TO DO: skip acting by units[1] = +-1
+    for j := 1 to #units do
+      e0 := split_units[j] * e;
+      _, e1 := P1rep(e0, false, false);
+      if e1 notin orbit then
+        Exclude(~elts, e1);
+        Include(~orbit, e1);
+        // Lookuptable is keyed by e1 in P1reps (elements of P1)
+        // and stores the orbit representative index (#FD) and index
+        // of the unit (j) taking the representative e to e1
+        Lookuptable[e1] := < #FD, j >;
+      elif e1 eq e then
+        // we also store the stabilizers of each orbit representative e0
+        Append(~stab, [* units[j] *]);
       end if;
-   end while;
+    end for;
 
-   vprintf ModFrmHil, 2: "Stabilizers %o\n", Multiset(StabOrders);
+    // assert #units eq (1+#stab) * #orbit;
+    Append(~StabOrders, 1+#stab);
 
-   PLD := rec< ProjectiveLineData |
-               Level:=d,
-               P1List:=P1,
-               P1Rep:=P1rep,
-               FD:=FD,
-               Lookuptable:=Lookuptable,
-               StabOrders:=StabOrders,
-               splitting_map:=split_map
-          >;
-   if DoStabs then
-      PLD`Stabs:=Stabs;
-   end if;
-   return PLD;
+    if DoStabs then
+      // want stab to contain just generators of the stabilizer
+      stab_U := [s[1] @@ unit_map : s in stab];
+      // takes the group generated by stab_U and returns the indices
+      // in stab_U which are required to generate this group
+      stab_U_gens := minimal_generators(sub< U | stab_U >);
+      // just the elements of stab whose indices appear in stab_U_gens
+      stab_gens := [stab[i] : i in [1..#stab] | stab_U[i] in stab_U_gens];
+      Append(~Stabs, stab_gens);
+    end if;
+  end while;
+
+  vprintf ModFrmHil, 2: "Stabilizers %o\n", Multiset(StabOrders);
+
+  PLD := rec< ProjectiveLineData |
+             Level:=d,
+             P1List:=P1,
+             P1Rep:=P1rep,
+             FD:=FD,
+             Lookuptable:=Lookuptable,
+             StabOrders:=StabOrders,
+             splitting_map:=split_map
+        >;
+  if DoStabs then
+    PLD`Stabs:=Stabs;
+  end if;
+  return PLD;
 
 end function;
-
-
 
 function InvariantSpace(stab, weight_map, weight_dim, wt_base_field)
-   // Given a stabilizer stab (as sequence of quaternions), and a weight representation, 
-   // this returns the corresponding invariant space. 
+  // Given a stabilizer stab (as sequence of quaternions), and a weight representation, 
+  // this returns the corresponding invariant space. 
 
-   A:=Domain(weight_map); 
-   F:=wt_base_field; 
-   V:=VectorSpace(F, weight_dim); 
-   V1:=V;
-   S := [A| u@Umap : u in Generators(U)] where U, Umap := UnitGroup(BaseField(A));
-   S cat:= [s[1] : s in stab | s[1] notin {A|1,-1}]; 
-   for s in S do 
-      w := weight_map(s);
-      V1 meet:= Kernel(w - IdentityMatrix(F, weight_dim));
-      if Rank(V1) eq 0 then break; end if;
-   end for;
+  A:=Domain(weight_map); 
+  F:=wt_base_field; 
+  V:=VectorSpace(F, weight_dim); 
+  V1:=V;
+  S := [A| u@Umap : u in Generators(U)] where U, Umap := UnitGroup(BaseField(A));
+  S cat:= [s[1] : s in stab | s[1] notin {A|1,-1}]; 
+  for s in S do 
+    w := weight_map(s);
+    V1 meet:= Kernel(w - IdentityMatrix(F, weight_dim));
+    if Rank(V1) eq 0 then break; end if;
+  end for;
 
-   return BasisMatrix(V1);
+  return BasisMatrix(V1);
 end function;
-
 
 // This is called by HilbertModularSpaceDirectFactors (now only for nontrivial weight)
 // P1 = projective line mod d, 
-// LO is a quaternion order, 
+// LO is a quaternion order - the left order of some left ideal I_i of O_0(1)
 // split_map LO -> M_2(O/d),
 // weight_map = weight_rep
 
 function HMSDF(P1, P1rep, LO, d, split_map, weight_map, weight_dim, wt_base_field)
 
-   U, unit_map:=UnitGroup(LO); 
-   units:=[Algebra(LO)! unit_map(s): s in U];
-   PLD:=ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map); 
-   F:=wt_base_field;
-   stabs:=PLD`Stabs; 
-   l:=1; 
-   repeat 
-      M:=InvariantSpace(stabs[l], weight_map, weight_dim, F);
-      if Rank(M) eq 0 then l:=l+1; end if;
-   until (l gt #stabs) or (Rank(M) ne 0);
+  U, unit_map:=UnitGroup(LO); 
+  units:=[Algebra(LO)! unit_map(s): s in U];
+  // Dembele-Voight write the units as Gamma (or Gamma_i).
+  // Now, we compute the action of Gamma on P^1(ZF / d)
+  PLD:=ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map); 
+  F:=wt_base_field;
+  // the jth entry of stabs consists of a list of 
+  // elements in Gamma which stabilize the 
+  // chosen representative of the jth orbit
+  stabs:=PLD`Stabs; 
+  // l indexes orbits of the Gamma action on P1(ZF / d) 
+  l:=1; 
+  repeat 
+    M:=InvariantSpace(stabs[l], weight_map, weight_dim, F);
+    if Rank(M) eq 0 then l:=l+1; end if;
+  until (l gt #stabs) or (Rank(M) ne 0);
 
-   if l gt #stabs then
-      return rec<ModFrmHilDirFact|PLD:=PLD, CFD:={@ @}, basis_matrix:=ZeroMatrix(F, 0, 0), 
-                 basis_matrix_inv:=ZeroMatrix(F, 0, 0), weight_rep:=weight_map, 
-                 weight_dimension:=weight_dim, weight_base_field:=F, max_order_units:=units>;
-   else
-      contrib_orbs:=[l];
-      for m0:=l+1 to #stabs do
-         N:=InvariantSpace(stabs[m0], weight_map, weight_dim, F);
-         if Rank(N) ne 0 then
-            Append(~contrib_orbs, m0);
-            nb_rows:=Nrows(M)+Nrows(N); 
-            nb_cols:=Ncols(M)+Ncols(N);
-            Q:=RMatrixSpace(F, nb_rows, nb_cols)!0; 
-            InsertBlock(~Q, M, 1, 1);
-            InsertBlock(~Q, N, Nrows(M)+1, Ncols(M)+1); 
-            M:=Q;
-         end if;
-      end for;
-      contrib_orbs := {@ x : x in contrib_orbs @}; // SetIndx is better than SeqEnum
-   end if;
-   N:=Transpose(Solution(Transpose(M), ScalarMatrix(F, Rank(M), 1)));
+  // TODO abhijitm wait so max order units is being set to units??
+  if l gt #stabs then
+    return rec<ModFrmHilDirFact|PLD:=PLD, CFD:={@ @}, basis_matrix:=ZeroMatrix(F, 0, 0), 
+               basis_matrix_inv:=ZeroMatrix(F, 0, 0), weight_rep:=weight_map, 
+               weight_dimension:=weight_dim, weight_base_field:=F, max_order_units:=units>;
+  else
+    contrib_orbs:=[l];
+    for m0:=l+1 to #stabs do
+      N:=InvariantSpace(stabs[m0], weight_map, weight_dim, F);
+      if Rank(N) ne 0 then
+        Append(~contrib_orbs, m0);
+        // TODO abhijitm this seems really inefficient, 
+        // it looks like we are re-making the matrix from
+        // scratch each time instead of e.g. collecting the blocks
+        // and then synthesizing the space after.
+        nb_rows:=Nrows(M)+Nrows(N); 
+        nb_cols:=Ncols(M)+Ncols(N);
+        Q:=RMatrixSpace(F, nb_rows, nb_cols)!0; 
+        InsertBlock(~Q, M, 1, 1);
+        InsertBlock(~Q, N, Nrows(M)+1, Ncols(M)+1); 
+        M:=Q;
+      end if;
+    end for;
+    contrib_orbs := {@ x : x in contrib_orbs @}; // SetIndx is better than SeqEnum
+  end if;
+  // This is a left inverse of M but Magma is bad with coercions
+  N:=Transpose(Solution(Transpose(M), ScalarMatrix(F, Rank(M), 1)));
 
-   return rec<ModFrmHilDirFact|PLD:=PLD, CFD:=contrib_orbs, basis_matrix:=M, basis_matrix_inv:=N, 
-   	  		        weight_rep:=weight_map, weight_dimension:=weight_dim, 
+  return rec<ModFrmHilDirFact|PLD:=PLD, CFD:=contrib_orbs, basis_matrix:=M, basis_matrix_inv:=N, 
+    		        weight_rep:=weight_map, weight_dimension:=weight_dim, 
                                 weight_base_field:=F, max_order_units:=units>;
 end function;
 
+//////////////////////////////////////////////////////////////////////////////
+//
+// SECTION 2: Core functions for computing quaternionic cusp forms
+//
+//////////////////////////////////////////////////////////////////////////////
 
 // The space M is a direct sum of one "direct factor" (or "component")
 // for each right ideal class
 
 function HilbertModularSpaceDirectFactors(M)
   
-   if not assigned M`ModFrmHilDirFacts then 
-      
-      F := BaseField(M);
-      A := Algebra(QuaternionOrder(M));
-      d := Level(M)/Discriminant(A);
+  if not assigned M`ModFrmHilDirFacts then 
+    
+    F := BaseField(M);
+    A := Algebra(QuaternionOrder(M));
+    d := Level(M)/Discriminant(A);
 
-      vprintf ModFrmHil, 2: "Projective line modulo ideal of norm %o: ", Norm(d);
-      vtime ModFrmHil, 2:
-      P1, P1rep := ProjectiveLine(quo<Order(d)|d> : Type:="Matrix");
+    vprintf ModFrmHil, 2: "Projective line modulo ideal of norm %o: ", Norm(d);
+    vtime ModFrmHil, 2:
+    P1, P1rep := ProjectiveLine(quo<Order(d)|d> : Type:="Matrix");
 
-      if not assigned M`splitting_map then
-         M`splitting_map := _ResidueMatrixRing(M`QuaternionOrder, d);
+    if not assigned M`splitting_map then
+      M`splitting_map := _ResidueMatrixRing(M`QuaternionOrder, d);
+    end if;
+    split_map := M`splitting_map;
+
+    // These can also be thought of as 
+    // \hat{alpha} \hat{O}_0(1) \hat{\alpha}^{-1} \cap B
+    // where \hat{alpha} ranges over double coset representatives
+    // for B* \ B*(A_F) / O_0(1)
+    LOs := [I`LeftOrder: I in get_rids(M)]; 
+
+    // parallel weight 2 and trivial nebentypus
+    if Seqset(Weight(M)) eq {2} and IsTrivial(DirichletCharacter(M)) then
+
+      HMDFs := [];
+      Q := Rationals();
+
+      for LO in LOs do 
+
+        U, mU := UnitGroup(LO); 
+        units := [A| s @ mU : s in U];
+
+        PLD := ProjectiveLineOrbits(P1, P1rep, d, mU, units, split_map : DoStabs:=false);
+
+        // number of orbits is the dimension
+        dim := #PLD`FD;
+        Id := MatrixRing(Rationals(), dim) ! 1;
+
+        Append(~HMDFs, 
+           rec< ModFrmHilDirFact | 
+                PLD := PLD, 
+                CFD := IndexedSet([1 .. dim]), // TO DO: get rid of this, and the basis_matrices
+                basis_matrix := Id, 
+                basis_matrix_inv := Id, 
+                weight_dimension := 1, 
+                weight_base_field := Q, 
+                max_order_units := units
+              > );
+      end for;
+
+    else 
+
+      if not assigned M`weight_rep then
+        _ := WeightRepresentation(M);
       end if;
-      split_map := M`splitting_map;
-
-      LOs := [I`LeftOrder: I in get_rids(M)]; 
-
-      if Seqset(Weight(M)) eq {2} then // parallel weight 2
-
-         HMDFs := [];
-         Q := Rationals();
-
-         for LO in LOs do 
-
-            U, mU := UnitGroup(LO); 
-            units := [A| s @ mU : s in U];
-
-            PLD := ProjectiveLineOrbits(P1, P1rep, d, mU, units, split_map : DoStabs:=false);
-
-            dim := #PLD`FD;
-            Id := MatrixRing(Rationals(), dim) ! 1;
-
-            Append(~HMDFs, 
-               rec< ModFrmHilDirFact | 
-                    PLD := PLD, 
-                    CFD:= IndexedSet([1 .. dim]), // TO DO: get rid of this, and the basis_matrices
-                    basis_matrix := Id, 
-                    basis_matrix_inv := Id, 
-                    weight_dimension := 1, 
-                    weight_base_field := Q, 
-                    max_order_units := units
-                  > );
-         end for;
-
-      else 
-
-         if not assigned M`weight_rep then
-            _ := WeightRepresentation(M);
-         end if;
  
-         wr := M`weight_rep;
-         wd := M`weight_dimension;
-         wF := M`weight_base_field;
+      wr := M`weight_rep;
+      wd := M`weight_dimension;
+      wF := M`weight_base_field;
  
-         HMDFs := [HMSDF(P1, P1rep, LO, d, split_map, wr, wd, wF) : LO in LOs];
+      HMDFs := [HMSDF(P1, P1rep, LO, d, split_map, wr, wd, wF) : LO in LOs];
 
-      end if; // parallel weight 2
+    end if; // parallel weight 2
 
-      M`ModFrmHilDirFacts := HMDFs;
-   end if;
-   
-   return M`ModFrmHilDirFacts;
+    M`ModFrmHilDirFacts := HMDFs;
+  end if;
+  
+  return M`ModFrmHilDirFacts;
 end function;
-
-
 
 function InnerProductMatrixBig(M)
   if not assigned M`InnerProductBig then
@@ -750,7 +515,6 @@ function InnerProductMatrixBig(M)
   end if;
   return Matrix(M`InnerProductBig);
 end function;
-
 
 // Given a vector w of positive integers,
 // return a basis matrix B for the orthogonal complement
@@ -785,7 +549,6 @@ function Zcomplement(w)
   assert IsOne(B * Bi);
   return B, Bi;
 end function;
-
 
 // In parallel weight 2, there are Eisenstein series in the raw space.
 // They are easy to write down as "indicator vectors" corresponding 
@@ -843,7 +606,6 @@ function EisensteinBasis(M)
   return Eis;
 end function;
 
-
 procedure RemoveEisenstein(~M)
   vprintf ModFrmHil: "Quotienting out the Eisenstein subspace: ";
   time0_eis := Cputime();
@@ -881,7 +643,6 @@ procedure RemoveEisenstein(~M)
   vprintf ModFrmHil: "%os\n", Cputime(time0_eis);
 end procedure;
 
-
 // Main function for the basis of a definite space
 
 // Only to be called by basis_matrix, Dimension and within this file;
@@ -895,316 +656,333 @@ forward ComputeBasisMatrixOfNewSubspaceDefinite;
 
 function BasisMatrixDefinite(M : EisensteinAllowed:=false)
 
-   if assigned M`basis_matrix then
-      return M`basis_matrix, M`basis_matrix_inv, M`Dimension;
-   elif EisensteinAllowed and not assigned M`Ambient and 
-      assigned M`basis_matrix_big 
-   then
-      return M`basis_matrix_big;
-   end if;
+  if assigned M`basis_matrix then
+    return M`basis_matrix, M`basis_matrix_inv, M`Dimension;
+  elif EisensteinAllowed and not assigned M`Ambient and 
+    assigned M`basis_matrix_big 
+  then
+    return M`basis_matrix_big;
+  end if;
 
-   if assigned M`Ambient then
+  if assigned M`Ambient then
 
-      ComputeBasisMatrixOfNewSubspaceDefinite(M);
-      dim := Nrows(M`basis_matrix);
+    ComputeBasisMatrixOfNewSubspaceDefinite(M);
+    dim := Nrows(M`basis_matrix);
 
-   else // M is ambient
+  else // M is ambient
 
-      weight2 := Seqset(Weight(M)) eq {2};
+    weight2 := Seqset(Weight(M)) eq {2};
 
-      if not assigned M`basis_matrix_big then
-        easy := weight2 and Level(M) eq Discriminant(QuaternionOrder(M));
-        // easy = basis of space is given by the rids (ie each P^1 is trivial)
+    if not assigned M`basis_matrix_big then
+      easy := weight2 and Level(M) eq Discriminant(QuaternionOrder(M));
+      // easy = basis of space is given by the rids (ie each P^1 is trivial)
 
-        if weight2 then
-          M`weight_base_field := Rationals();
-          M`weight_dimension := 1;
-        end if;
-
-        if easy then
-          // basis of M is given by rids
-          d := #get_rids(M);
-          Id := MatrixAlgebra(Rationals(), d) ! 1;
-          M`basis_matrix_big := Id;
-          M`basis_matrix_big_inv := Id;
-        else
-          HMDF := HilbertModularSpaceDirectFactors(M);
-          nrows := &+ [Nrows(HMDF[m]`basis_matrix): m in [1..#HMDF]];
-          ncols := &+ [Ncols(HMDF[m]`basis_matrix): m in [1..#HMDF]];
-          B := Matrix(BaseRing(HMDF[1]`basis_matrix), nrows, ncols, []);
-          row := 1; 
-          col := 1;
-          for hmdf in HMDF do 
-             if not IsEmpty(hmdf`CFD) then
-                InsertBlock(~B, hmdf`basis_matrix, row, col);
-                row +:= Nrows(hmdf`basis_matrix);
-                col +:= Ncols(hmdf`basis_matrix);
-             end if;
-          end for;
-          Binv := Transpose(Solution(Transpose(B), IdentityMatrix(BaseRing(B), Nrows(B))));
-          M`basis_matrix_big := B; 
-          M`basis_matrix_big_inv := Binv; 
-        end if;
+      if weight2 then
+        M`weight_base_field := Rationals();
+        M`weight_dimension := 1;
       end if;
-        
-      if weight2 and not EisensteinAllowed then
-        RemoveEisenstein(~M);
-        dim := Nrows(M`basis_matrix);
-      elif weight2 then
-        dim := Nrows(M`basis_matrix_big) - #NarrowClassGroup(BaseField(M));
+
+      if easy then
+        // basis of M is given by rids
+        d := #get_rids(M);
+        Id := MatrixAlgebra(Rationals(), d) ! 1;
+        M`basis_matrix_big := Id;
+        M`basis_matrix_big_inv := Id;
       else
-        M`basis_matrix := M`basis_matrix_big;
-        M`basis_matrix_inv := M`basis_matrix_big_inv;
-        dim := Nrows(M`basis_matrix);
+        HMDF := HilbertModularSpaceDirectFactors(M);
+        nrows := &+ [Nrows(HMDF[m]`basis_matrix): m in [1..#HMDF]];
+        ncols := &+ [Ncols(HMDF[m]`basis_matrix): m in [1..#HMDF]];
+        B := Matrix(BaseRing(HMDF[1]`basis_matrix), nrows, ncols, []);
+        row := 1; 
+        col := 1;
+        for hmdf in HMDF do 
+          if not IsEmpty(hmdf`CFD) then
+            InsertBlock(~B, hmdf`basis_matrix, row, col);
+            row +:= Nrows(hmdf`basis_matrix);
+            col +:= Ncols(hmdf`basis_matrix);
+          end if;
+        end for;
+        // TODO as before, this is just a left inverse 
+        Binv := Transpose(Solution(Transpose(B), IdentityMatrix(BaseRing(B), Nrows(B))));
+        M`basis_matrix_big := B; 
+        M`basis_matrix_big_inv := Binv; 
       end if;
+    end if;
+      
+    if weight2 and not EisensteinAllowed then
+      RemoveEisenstein(~M);
+      dim := Nrows(M`basis_matrix);
+    elif weight2 then
+      dim := Nrows(M`basis_matrix_big) - #NarrowClassGroup(BaseField(M));
+    else
+      M`basis_matrix := M`basis_matrix_big;
+      M`basis_matrix_inv := M`basis_matrix_big_inv;
+      dim := Nrows(M`basis_matrix);
+    end if;
 
-   end if;
+  end if;
 
-   if not assigned M`Dimension then
-      M`Dimension := dim;
-   else 
-      error if M`Dimension ne dim,
-           "The space has been computed incorrectly!!!\n" * please_report;
-   end if;
+  if not assigned M`Dimension then
+    M`Dimension := dim;
+  else 
+    error if M`Dimension ne dim,
+         "The space has been computed incorrectly!!!\n" * please_report;
+  end if;
   
-   // Retrieve the answer (now cached)
-   return BasisMatrixDefinite(M : EisensteinAllowed:=EisensteinAllowed);
+  // Retrieve the answer (now cached)
+  return BasisMatrixDefinite(M : EisensteinAllowed:=EisensteinAllowed);
 end function;
-
-
-/********************************************************************
-  HECKE OPERATORS AND DEGENERACY MAPS                    
-*********************************************************************/
 
 // TO DO: sparse
 
 function HeckeOperatorDefiniteBig(M, p : Columns:="all")
 
-   assert not assigned M`Ambient; // M is an ambient
+  assert not assigned M`Ambient; // M is an ambient
 
-   // Caching
-   // HeckeBig and HeckeBigColumns must be assigned together
+  // Caching
+  // HeckeBig and HeckeBigColumns must be assigned together
 
-   cached, Tp := IsDefined(M`HeckeBig, p);
-   if cached then 
-     Tp := Matrix(Tp);
-     _, old_cols := IsDefined(M`HeckeBigColumns, p);
-     if Columns cmpeq "all" then
-       Columns := [1..Ncols(Tp)];
-     end if;
-     columns := [j : j in Columns | j notin old_cols];
-     if IsEmpty(columns) then
-       return Tp;
-     end if;
-   else
-     old_cols := [];
-     columns := Columns;
-   end if;
+  cached, Tp := IsDefined(M`HeckeBig, p);
+  if cached then 
+    Tp := Matrix(Tp);
+    _, old_cols := IsDefined(M`HeckeBigColumns, p);
+    if Columns cmpeq "all" then
+      Columns := [1..Ncols(Tp)];
+    end if;
+    columns := [j : j in Columns | j notin old_cols];
+    if IsEmpty(columns) then
+      return Tp;
+    end if;
+  else
+    old_cols := [];
+    columns := Columns;
+  end if;
 
-   A := Algebra(QuaternionOrder(M));
-   N := Level(M);
-   weight2 := Seqset(Weight(M)) eq {2};
-   easy := weight2 and N eq Discriminant(QuaternionOrder(M));
-   // easy = basis of big space is given by the rids
+  A := Algebra(QuaternionOrder(M));
+  N := Level(M);
+  weight2 := Seqset(Weight(M)) eq {2};
 
-   if not assigned M`basis_matrix then
-     _ := BasisMatrixDefinite(M : EisensteinAllowed);
-   end if;
-   dim := Ncols(M`basis_matrix_big);
+  // easy = basis of big space is given by the rids
+  easy := weight2 and N eq Discriminant(QuaternionOrder(M));
 
-   F := M`weight_base_field; // = Q for parallel weight 2
-   if easy then
-     h := dim;
-   else
-     HMDF := M`ModFrmHilDirFacts; 
-     nCFD := [#xx`CFD : xx in HMDF];
-     h := #HMDF;
-     wd := M`weight_dimension; // = 1 for weight2
-   end if;
+  if not assigned M`basis_matrix then
+    _ := BasisMatrixDefinite(M : EisensteinAllowed);
+  end if;
+  dim := Ncols(M`basis_matrix_big);
 
-   // Columns/columns refer to actual columns of the big matrix, 
-   // Bcolumns to columns of large blocks, bcolumns to small blocks
+  F := M`weight_base_field; // = Q for parallel weight 2
+  if easy then
+    h := dim;
+  else
+    HMDF := M`ModFrmHilDirFacts; 
+    // dimension of each direct factor,
+    // i.e the number of orbits in the projective line 
+    nCFD := [#xx`CFD : xx in HMDF];
+    // the number of direct factors, i.e. the class number
+    // of O_0(1)
+    h := #HMDF;
+    wd := M`weight_dimension; // = 1 for weight2
+  end if;
 
-   if columns cmpeq "all" then
-     columns := [1..dim];
-   else
-     columns := Sort([Integers()| i : i in columns]);
-   end if;
-   assert not IsEmpty(columns) and columns subset [1..dim];
+  // Columns/columns refer to actual columns of the big matrix, 
+  // Bcolumns to columns of large blocks, bcolumns to small blocks
 
-   if not weight2 then // currently, higher weight doesn't use Columns
-     columns := [1 .. dim];
-   end if;
+  if columns cmpeq "all" then
+    columns := [1..dim];
+  else
+    columns := Sort([Integers()| i : i in columns]);
+  end if;
+  assert not IsEmpty(columns) and columns subset [1..dim];
 
-   if easy then
-     bcolumns := columns;
-     Bcolumns := columns;
-   elif columns eq [1 .. dim] then // full matrix 
-     bcolumns := [1 .. dim div wd];
-     Bcolumns := [1 .. h];
-   elif weight2 then 
-     bcolumns := columns;
-     Bcolumns := [];
-     b := 1;
-     for i := 1 to #HMDF do
-       e := b + nCFD[i] - 1;
-       if exists{x: x in [b..e] | x in columns} then
-         Append(~Bcolumns, i);
-       end if;
-       b := e + 1;
-     end for;
-   else
-     bcolumns := [];
-     Bcolumns := [];
-     b := 1;
-     for i := 1 to #HMDF do
-       for j := 1 to nCFD[i] do
-         e := b + wd - 1;
-         if exists{x: x in [b..e] | x in columns} then
-           Append(~bcolumns, e div wd);
-           Append(~Bcolumns, i);
-         end if;
-         b := e + 1;
-       end for;
-     end for;
-   end if;
+  if not weight2 then // currently, higher weight doesn't use Columns
+    columns := [1 .. dim];
+  end if;
 
-   if not cached then
-     Tp := MatrixRing(F, dim) ! 0; 
-   end if;
+  if easy then
+    bcolumns := columns;
+    Bcolumns := columns;
+  elif columns eq [1 .. dim] then // full matrix 
+    bcolumns := [1 .. dim div wd];
+    // one large block for each direct factor
+    Bcolumns := [1 .. h];
+  elif weight2 then 
+    bcolumns := columns;
+    Bcolumns := [];
+    b := 1;
+    for i := 1 to #HMDF do
+      e := b + nCFD[i] - 1;
+      if exists{x: x in [b..e] | x in columns} then
+        Append(~Bcolumns, i);
+      end if;
+      b := e + 1;
+    end for;
+  end if;
+  
+  if not cached then
+    Tp := MatrixRing(F, dim) ! 0; 
+  end if;
 
 //"Starting with"; Tp;
 
 //"Columns:"; Columns; old_cols; columns; bcolumns; Bcolumns;
 
-   tp := get_tps(M, p : rows:=Bcolumns); // rows in precompute_tps are columns here
+  tp := get_tps(M, p : rows:=Bcolumns); // rows in precompute_tps are columns here
 
-   vprintf ModFrmHil: "%o%o column%o%o of big Hecke matrix (norm %o): ", 
-                      #columns eq dim select "All " else "", 
-                      #columns, 
-                      #columns gt 1 select "s" else "", 
-                      #columns gt 1 select "" else " (#"*Sprint(columns[1])*")", 
-                      Norm(p);
-   vtime ModFrmHil:
+  vprintf ModFrmHil: "%o%o column%o%o of big Hecke matrix (norm %o): ", 
+                     #columns eq dim select "All " else "", 
+                     #columns, 
+                     #columns gt 1 select "s" else "", 
+                     #columns gt 1 select "" else " (#"*Sprint(columns[1])*")", 
+                     Norm(p);
+  vtime ModFrmHil:
 
-   if easy then
+  if easy then
 
-      for j in Bcolumns, i in [1..h] do 
-         bool, tpji := IsDefined(tp, <j,i>);
-         if bool then
-            Tp[i,j] := #tpji;
-         end if;
-      end for;
+    for j in Bcolumns, i in [1..h] do 
+      bool, tpji := IsDefined(tp, <j,i>);
+      if bool then
+        Tp[i,j] := #tpji;
+      end if;
+    end for;
 
-   else
+  else
 
-     sm := M`splitting_map;
-     
-     checkP1 := Valuation(N,p) gt 0;
+    sm := M`splitting_map;
+    
+    checkP1 := Valuation(N,p) gt 0;
 
-     inds := [l : l in [1..#HMDF] | nCFD[l] ne 0];
-     row := 0; 
-     col := 0;
+    // TODO abhijitm I don't see how this 
+    // is ever not [1 .. #HMDF] because nCFD
+    // is the number of orbits which is always
+    // at least one.
+    inds := [l : l in [1..#HMDF] | nCFD[l] ne 0];
+    row := 0; 
+    col := 0;
 
-     for m in inds do 
-        if m in Bcolumns then
-           for l in inds do 
-              bool, tpml := IsDefined(tp, <m,l>);
-              if bool then
-                 if weight2 then
+    for m in inds do 
+      if m in Bcolumns then
+        for l in inds do 
+          bool, tpml := IsDefined(tp, <m,l>);
+          if bool then
+            if weight2 then
 
-                    PLDl := HMDF[l]`PLD;
-                    FDl   := PLDl`FD; 
-                    FDm   := HMDF[m]`PLD`FD; 
-                    lookup:= PLDl`Lookuptable; 
-                    P1rep := PLDl`P1Rep;
+              PLDl := HMDF[l]`PLD;
+              FDl   := PLDl`FD; 
+              FDm   := HMDF[m]`PLD`FD; 
+              lookup:= PLDl`Lookuptable; 
+              P1rep := PLDl`P1Rep;
 
-                    Tplm := ExtractBlock(Tp, row+1, col+1, #FDl, #FDm);
-                    mms := [mm : mm in [1..#FDm] | col+mm in bcolumns];
-                    for ll := 1 to #tpml do
-                       mat := tpml[ll] @ sm;
-                       for mm in mms do 
-                          u := mat * FDm[mm];
-                          bool, u0 := P1rep(u, checkP1, false);
-                          if bool then
-                             n := lookup[u0,1]; 
-                             // assert n eq Index(HMDF[l]`CFD, n);
-                             Tplm[n,mm] +:= 1;
-                          end if;
-                       end for;
-                    end for;
-                    InsertBlock(~Tp, Tplm, row+1, col+1);
+              // get the #FDl x #FDm submatrix starting
+              // at row+1, col+1
+              Tplm := ExtractBlock(Tp, row+1, col+1, #FDl, #FDm);
+              mms := [mm : mm in [1..#FDm] | col+mm in bcolumns];
+              for ll := 1 to #tpml do
+                mat := tpml[ll] @ sm;
+                for mm in mms do 
+                  u := mat * FDm[mm];
+                  bool, u0 := P1rep(u, checkP1, false);
+                  if bool then
+                    n := lookup[u0,1]; 
+                    // assert n eq Index(HMDF[l]`CFD, n);
+                    Tplm[n,mm] +:= 1;
+                  end if;
+                end for;
+              end for;
+              InsertBlock(~Tp, Tplm, row+1, col+1);
 
-                 else
+            else
 
-                    PLDl  := HMDF[l]`PLD;
-                    FDl   := PLDl`FD; 
-                    FDm   := HMDF[m]`PLD`FD; 
-                    lookup:= PLDl`Lookuptable; 
-                    P1rep := PLDl`P1Rep;
+              PLDl  := HMDF[l]`PLD;
+              FDl   := PLDl`FD; 
+              FDm   := HMDF[m]`PLD`FD; 
+              lookup:= PLDl`Lookuptable; 
+              P1rep := PLDl`P1Rep;
 
-                    CFDl := HMDF[l]`CFD; 
-                    CFDm := HMDF[m]`CFD; 
-                    units1 := HMDF[l]`max_order_units; 
-                    weight_map := HMDF[l]`weight_rep; 
+              CFDl := HMDF[l]`CFD; 
+              CFDm := HMDF[m]`CFD; 
+              units1 := HMDF[l]`max_order_units; 
+              weight_map := HMDF[l]`weight_rep; 
 
-                    Tplm := Matrix(F, wd*#CFDl, wd*#CFDm, []);
+              // the row/column block corresponding to the
+              // pair of direct factors (l, m) has dimension
+              // (wd * #CFDl) x (wd * #CFDm) because #CFDl 
+              // and #CFDm are the respective numbers of projective line 
+              // orbits, and for each of these we have an element of Wk(C)
+              Tplm := Matrix(F, wd*#CFDl, wd*#CFDm, []);
 
-                    for ll := 1 to #tpml do
-                       mat := tpml[ll] @ sm;
-                       for mm := 1 to #CFDm do
-                          u := mat * FDm[CFDm[mm]];
-                          bool, u0 := P1rep(u, checkP1, false);
-                          if bool then
-                             elt_data := lookup[u0]; 
-                             n := Index(CFDl, elt_data[1]);
-                             if n ne 0 then
-                                quat1 := units1[elt_data[2]]^-1 * tpml[ll]; 
-                                X := ExtractBlock(Tplm, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
-                                X +:= weight_map(quat1);
-                                InsertBlock(~Tplm, X, (n-1)*wd+1, (mm-1)*wd+1);
-                             end if;
-                          end if;
-                       end for;
-                    end for;
-                    InsertBlock(~Tp, Tplm, row+1, col+1);
+              for ll := 1 to #tpml do
+                // tpml[ll] is an element of O, and mat is the element mod N
+                mat := tpml[ll] @ sm;
+                for mm := 1 to #CFDm do
+                  // FDm[CFDm[mm]] is an element of the projective line,
+                  // so applying mat to it makes sense
+                  u := mat * FDm[CFDm[mm]];
+                  // TODO abhijitm what is the bool?
+                  bool, u0 := P1rep(u, checkP1, false);
+                  if bool then
+                    elt_data := lookup[u0]; 
+                    n := Index(CFDl, elt_data[1]);
+                    if n ne 0 then
+                      // TODO abhijitm this is very misleading,
+                      // units1 is not the units of O_0(1)* but rather
+                      // the units of the left order corresponding to this 
+                      // direct factor
+                      //
+                      // anyways, units1[elt_data[2]]^-1 is the unit which takes
+                      // the orbit rep of u0 to u0. 
+                      quat1 := units1[elt_data[2]]^-1 * tpml[ll]; 
+                      X := ExtractBlock(Tplm, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
+                      // in the weight 2 case with no Shapiro's lemma, the entry
+                      // is 1 for each element of tpml, corresponding to the trivial
+                      // representation. 
+                      X +:= weight_map(quat1);
+                      InsertBlock(~Tplm, X, (n-1)*wd+1, (mm-1)*wd+1);
+                    end if;
+                  end if;
+                end for;
+              end for;
+              InsertBlock(~Tp, Tplm, row+1, col+1);
 
-                 end if;
-              end if;
-              row +:= nCFD[l] * wd;
-           end for;
-        end if;
-        col +:= nCFD[m] * wd;
-        row := 0;
-     end for;
+            end if;
+          end if;
+          row +:= nCFD[l] * wd;
+        end for;
+      end if;
+      col +:= nCFD[m] * wd;
+      row := 0;
+    end for;
 
-   end if;
+  end if;
 
-   // new columns were computed, so renew the cache
-   M`HeckeBig[p] := SparseMatrix(Tp);
-   M`HeckeBigColumns[p] := Sort(old_cols cat columns);
+  // new columns were computed, so renew the cache
+  M`HeckeBig[p] := SparseMatrix(Tp);
+  M`HeckeBigColumns[p] := Sort(old_cols cat columns);
 //"Now got columns",  M`HeckeBigColumns[p]; M`HeckeBig[p];
 
-   // Check Hecke invariance of Eisenstein subspace and its complement
-   if debug and M`HeckeBigColumns[p] eq [1..dim] then
-     if assigned M`InnerProductBig and Norm(p + N) eq 1 
-        and p@@cl eq NCl.0 where NCl, cl is NarrowClassGroup(BaseField(M))
-     then
-       assert Tp * M`InnerProductBig eq M`InnerProductBig * Transpose(Tp);
-     end if;
-     if assigned M`eisenstein_basis then
-       assert Rowspace(M`eisenstein_basis * Tp) subset Rowspace(M`eisenstein_basis);
-     end if;
-     if assigned M`basis_matrix then
-       printf "[debug] Checking space is preserved by Tp: "; time 
-       assert Rowspace(M`basis_matrix * Tp) subset Rowspace(M`basis_matrix);
-     end if;
-   end if;
+  // Check Hecke invariance of Eisenstein subspace and its complement
+  if debug and M`HeckeBigColumns[p] eq [1..dim] then
+    if assigned M`InnerProductBig and Norm(p + N) eq 1 
+       and p@@cl eq NCl.0 where NCl, cl is NarrowClassGroup(BaseField(M))
+    then
+      assert Tp * M`InnerProductBig eq M`InnerProductBig * Transpose(Tp);
+    end if;
+    if assigned M`eisenstein_basis then
+      assert Rowspace(M`eisenstein_basis * Tp) subset Rowspace(M`eisenstein_basis);
+    end if;
+    if assigned M`basis_matrix then
+      printf "[debug] Checking space is preserved by Tp: "; time 
+      assert Rowspace(M`basis_matrix * Tp) subset Rowspace(M`basis_matrix);
+    end if;
+  end if;
 
-   return Tp;
+  return Tp;
 end function;
 
-
+//////////////////////////////////////////////////////////////////////////////
+//
+// SECTION 3: All other functions (Atkin-Lehner, degeneracy maps, etc.)
+//
+//////////////////////////////////////////////////////////////////////////////
 
 // TO DO: columns option
 
@@ -1513,195 +1291,6 @@ assert false;
    M`DegDown1Big[p] := SparseMatrix(D);
    return D; 
 end function;
-
-
-/************ NOT USED YET
-
-// Stuff used in both Up1 and Upp
-
-function DegeneracyUpDefiniteBigStuff(M, p)  
-
-   N := Level(M) / Discriminant(QuaternionOrder(M));
-   Np := N/p;
-   assert ISA(Type(Np), RngOrdIdl); // integral
-
-   if not assigned M`basis_matrix then
-      _ := BasisMatrixDefinite(M : EisensteinAllowed);
-   end if;
-   dim := Ncols(M`basis_matrix_big);
-
-   HMDF := M`ModFrmHilDirFacts; 
-   h := #HMDF;
-   wd := M`weight_dimension; // = 1 for weight2
-   F := M`weight_base_field;
-
-   assert forall{l : l in [1..#HMDF] | #HMDF[l]`CFD gt 0};
-
-   P1N := HMDF[1]`PLD`P1List;
-
-   assert forall{x : x in HMDF | IsIdentical(x`PLD`P1List, P1N)};
-   // (the same P1 was attached to each block)
-
-   P1Np, P1repNp := ProjectiveLine(quo<Order(Np)|Np> : Type:="Vector");
-
-   C := P1_congruence_classes(P1N, N, Np);
-
-   Orbits := [* *];
-
-   for l := 1 to #HMDF do
-      FDl := HMDF[l]`PLD`FD; 
-      lookup := HMDF[l]`PLD`Lookuptable; 
-
-      // Important: 
-      // these are not the orbits given by ProjectiveLineOrbits(P1Np),
-      // so the degeneracy matrices do not give maps between the spaces
-
-      // TO DO: fast
-
-      function P1Np_rep(x)
-         assert exists(i){i : i in [1..#P1Np] | x in C[i]};
-         return P1Np[i];
-      end function;
-      orbits := {@ {P1Np_rep(x) : x in P1N | lookup[x,1] eq i} : i in [1..#FDl] @};
-U := &cat [Setseq(o) : o in orbits];
-assert #U eq #P1Np;
-assert Seqset(U) eq P1Np;
-
-      Append(~Orbits, orbits);
-   end for;
-
-   return <HMDF, h, wd, F, dim, N, Np, P1N, P1Np, C, Orbits>;
-end function;
-
-
-// The operator from level N/p to level N 
-// given by double cosets of the identity matrix
-
-function DegeneracyUp1DefiniteBig(M, p, stuff)
-
-   assert not assigned M`Ambient; // M is an ambient
-
-   if not assigned M`DegUp1Big then
-      M`DegUp1Big := AssociativeArray(Parent(p));
-   else
-      cached, D := IsDefined(M`DegUp1Big, p);
-      if cached then
-         return Matrix(D);
-      end if;
-   end if;
-
-   weight2 := Seqset(Weight(M)) eq {2};
-assert weight2;
-assert M`DirichletCharacter cmpeq 1;
-
-   // TO DO: easy case where N/p = 1
-
-   HMDF, h, wd, F, dim, N, Np, P1N, P1Np, C, Orbits := Explode(stuff);
-
-   D := < >;
-
-   for l := 1 to #HMDF do 
-      // dl := wd * #HMDF[l]`CFD;
-      FDl := HMDF[l]`PLD`FD; 
-      orbits := Orbits[l];
-
-      Dl := RMatrixSpace(F, #orbits, #FDl) ! 0;
-      ii := {};
-      for i := 1 to #FDl do
-         if i in ii then
-            continue;
-         end if;
-         v := FDl[i];
-
-         assert exists(rv){P1Np[c] : c in [1..#P1Np] | v in C[c]};
-         assert exists(j){j : j in [1..#orbits] | rv in orbits[j]};
-
-         Dl[j, i] := 1;
-      end for;
-
-      Append(~D, Dl);
-   end for;
-
-   D := DiagonalJoin(D);
-
-   M`DegUp1Big[p] := SparseMatrix(D);
-   return D; 
-end function;
-
-
-// The operator from level N/p to level N/p 
-// given by double cosets of diagonal matrix [p,1]
-
-function DegeneracyUppDefiniteBig(M, p, stuff)
-
-   assert not assigned M`Ambient; // M is an ambient
-
-   if not assigned M`DegUppBig then
-      M`DegUppBig := AssociativeArray(Parent(p));
-   else
-      cached, D := IsDefined(M`DegUppBig, p);
-      if cached then
-         return Matrix(D);
-      end if;
-   end if;
-
-   weight2 := Seqset(Weight(M)) eq {2};
-assert weight2;
-assert M`DirichletCharacter cmpeq 1;
-
-   // TO DO: easy case where N/p = 1
-
-   HMDF, h, wd, F, dim, N, Np, P1N, P1Np, C, Orbits := Explode(stuff);
-
-   tp := get_tps(M, p);
-
-   D := < >;
-
-   for l := 1 to #HMDF do 
-      // dl := wd * #HMDF[l]`CFD;
-      FDl := HMDF[l]`PLD`FD; 
-      orbits := Orbits[l];
-
-      Dl := RMatrixSpace(F, #orbits, #FDl) ! 0;
-
-      for i := 1 to #FDl do
-         // TO DO ???
-         // if i in ii then
-         v := FDl[i];
-
-         t := tp elt "associated" to v mod p
-
-         assert exists(rv){P1Np[c] : c in [1..#P1Np] | v in C[c]};
-         rvt := rv * t;
-         assert exists(j){j : j in [1..#orbits] | rvt in orbits[j]};
-
-         Dl[j, i] := 1;
-      end for;
-
-      Append(~D, Dl);
-   end for;
-
-   D := DiagonalJoin(D);
-
-   M`DegUppBig[p] := SparseMatrix(D);
-   return D;
-end function;
-
-
-function DegeneracyImage(M, p)
-
-// if D1 not cached...
-   stuff := DegeneracyUpDefiniteBigStuff(M, p);
-   D1    := DegeneracyUp1DefiniteBig(M, p, stuff);
-
-   AL := AtkinLehnerDefiniteBig(M, p);
-   Dp := D1 * AL;
-
-   return VerticalJoin(D1, Dp);
-end function;
-
-************/
-
 
 // The following functions are for degeneracy maps 
 // in the upward direction, from lower level to higher level.
@@ -2087,3 +1676,44 @@ end for;
    M`basis_is_honest := true;
 end procedure;
 
+/* Here we define the weight representation in characteristic zero. 
+
+   Representation at the ith place is det^(m[i]) tensor Sym^(n[i]). 
+   Here n[i] = k[i] - 2, and n[i] + 2*m[i] = C (a constant).
+   We take C = Max(k) - 2.  The central character is z :-> Norm(z)^C.
+*/
+
+intrinsic IsArithmeticWeight(F::Fld, k::SeqEnum[RngIntElt] : CentralCharacter:="default")
+       -> BoolElt, SeqEnum, SeqEnum
+   {Given a totally real number field F and a sequence k of integers, this determines whether 
+    k is an arithmetic weight for F. 
+    If so, integer sequences m and n are returned, and also an integer C.
+    The representation on the ith infinite place of F is det^(m[i]) tensor Sym^(n[i]).
+    This has central character t :-> Norm(t)^C }
+  
+   require Type(F) eq FldRat or ISA(Type(F), FldAlg) and IsAbsoluteField(F) :
+          "The first argument should be Q or an absolute extension of Q";
+   require Degree(F) eq #k: 
+          "The number of components of k must equal the degree of the base field";
+  if Type(CentralCharacter) eq RngIntElt then
+     C := CentralCharacter;
+     kmax := Max(k);
+     require C ge kmax - 2 and IsEven(C - kmax) : 
+            "Invalid value given for CentralCharacter";
+   else
+     C := Max(k) - 2;
+   end if;
+
+   n := [k[i] - 2 : i in [1..#k]];
+
+   if not forall{m: m in k| IsEven(m) and (m ge 2)} and
+      not forall{m: m in k| IsOdd(m) and (m ge 2)}
+   then
+     // TODO abhijitm this is terrible practice
+     return false, _, n, C;
+   end if;
+   m := [Integers()| (C - n[i])/2 : i in [1..#k]];
+
+//printf "Arithmetic weight: m = %o, n = %o, C = %o\n", m, n, C;
+   return true, m, n, C;
+end intrinsic;
