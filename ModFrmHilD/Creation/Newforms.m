@@ -5,9 +5,6 @@ import "CuspFormFromEigs.m" : coeff_from_ext_mult_fourier;
 // Caching magma computations
 intrinsic MagmaNewformDecomposition(Mk::ModFrmHilD) -> List
   {return the NewformDecomposition in magma type}
-  if IsEven(Degree(BaseField(Mk))) then 
-    require IsTrivial(DirichletRestriction(Character(Mk))): "We only support Newforms for characters with trivial Dirichlet restriction, as we rely on the magma functionality";
-  end if;
   if not assigned Mk`MagmaNewformDecomposition then
     N := Level(Mk);
     k := Weight(Mk);
