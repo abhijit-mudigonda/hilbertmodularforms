@@ -14,6 +14,7 @@ freeze;
 
 import "hecke_field.m" : DegeneracyMapDomain, WeightRepresentation;
 import "hecke.m" : please_report, pseudo_inverse, basis_is_honest;
+import "weight_rep.m" : FiniteModulusCharFromHeckeChar;
 import !"Geometry/ModFrmHil/precompute.m" : get_rids, get_tps;
 import !"Geometry/ModFrmHil/proj1.m" : residue_class_reps;
 
@@ -38,9 +39,24 @@ ProjectiveLineData:=recformat<
 
   Lookuptable:Assoc,           // Array indexed by P1List with values < FD index, unit index >
 
-  splitting_map,               // The splitting map mod n for the quaternion order.
+  splitting_map:Map,           // The splitting map mod n for the quaternion order.
 
-  Level:RngOrdIdl>;            // The level.
+  Level:RngOrdIdl,             // The level.
+
+  Quotient:Tup,                // The quotient ring ZF/N along with a map from
+                               // ZF to the ring
+                                                   
+  Character,                   // 0 if the nebentypus is trivial.
+                               // Otherwise, the output of 
+                               // FiniteModulusCharFromHeckeChar applied
+                               // to a Hecke character chi. 
+                               
+  CosetRepDict>;               // 0 if the nebentypus is trivial
+                               // Otherwise, an array indexed by P1List.
+                               // If the key is (b \\ d), 
+                               // the value is a matrix (a b \\ c d) in GL2(ZF/N),
+                               // i.e. a representative for (b \\ d) in GL2(ZF/N) / B
+                               // where B is the lower triangular Borel. 
 
 
 ModFrmHilDirFact:=recformat<
@@ -230,17 +246,83 @@ function minimal_generators(G)
   return gens;
 end function;
 
-function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs:=true)
+// Function for computing a dictionary of coset representatives 
+// of GL2(ZF/N) / B(N) where B(N) is the subgroup of lower triangular matrices
+//
+// return a dictionary mapping elements of P1 to
+// coset representatives for GL2(ZF/N) / B(N)
+function coset_rep_dict(P1, P1rep, level, quot)
+  // Use ProjectiveLine to get all projective points [b:d]
+  // For each point, construct a matrix [a b \\ c d] in GL2(ZF/N)
+  
+  N := level;
+  ZF := Order(N);
+  F := NumberField(ZF);
+  R, phi := Explode(quot);
+
+  coset_reps := AssociativeArray();
+  if Minimum(N) eq 1 then
+    assert #P1 eq 1;
+    coset_reps[Rep(P1)] := [Matrix(F, 2, 2, [1, 0, 0, 1])];
+    return coset_reps;
+  end if;
+  
+  for p in P1 do
+    // p is a 2x1 matrix representing [b; d]
+    b := ZF!(p[1,1] @@ phi);
+    d := ZF!(p[2,1] @@ phi);
+    
+    // Simple approach: try standard patterns
+    // Pattern 1: [1, b; 0, d] if d is a unit
+    if GCD(ideal<ZF | d>, N) eq 1*ZF then
+      mat := Matrix(F, 2, 2, [1, b, 0, d]);
+    // Pattern 2: [0, b; 1, d] if b is a unit  
+    elif GCD(ideal<ZF | b>, N) eq 1*ZF then
+      mat := Matrix(F, 2, 2, [0, b, 1, d]);
+    // Pattern 3: [1, b; 1, d] if d-b is a unit
+    elif GCD(ideal<ZF | d-b>, N) eq 1*ZF then
+      mat := Matrix(F, 2, 2, [1, b, 1, d]);
+    else
+      // Exhaustive search for small a, c
+      found := false;
+      all_elems := [ZF!(x @@ phi) : x in R];
+      for a in all_elems do
+        if found then break; end if;
+        for c in all_elems do
+          det_val := a*d - b*c;
+          if GCD(ideal<ZF | det_val>, N) eq 1*ZF then
+            mat := Matrix(F, 2, 2, [a, b, c, d]);
+            found := true;
+            break c;
+          end if;
+        end for;
+      end for;
+      
+      if not found then
+        // This really shouldn't happen for a valid projective point
+        error "Could not find valid GL2 matrix for projective point", p;
+      end if;
+    end if;
+    
+    coset_reps[p] := mat;
+  end for;
+  return coset_reps;
+end function;
+
+function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs:=true, chi:=0)
   // d is an ideal in the ring of integers of a number field, 
   // P1 is ProjectiveLine(d) which comes with the function P1rep,
   // unit_map is the map returned by UnitGroup for a quaternion order O,
   // units contains its images, in a fixed ordering,
   // split_map is the map to the ResidueMatrixRing(O,d).
+  // chi is a Hecke character
+  //
   // Returns the orbits of the unit group acting on P1, 
   // and the stabilizers of the first element in each orbit.
   
   OK := Order(d); 
-  Rd := quo<OK|d>;
+  Rd, phi := quo<OK|d>;
+  quot := <Rd, phi>;
 
   U := Domain(unit_map);
   UU := Universe(units);
@@ -254,13 +336,15 @@ function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs
     Lookuptable[P1[1]] := < 1, 1 >;
     PLD := rec< ProjectiveLineData |
                 Level := d,
+                Quotient := quot,
                 P1List := P1,
                 P1Rep := P1rep,
                 FD := [P1[1]],
                 Lookuptable := Lookuptable,
                 StabOrders := [#units],
-                splitting_map:=split_map 
-              >;
+                splitting_map := split_map,
+                CosetRepDict := 0,
+                Character := 0>;
     if DoStabs then
       PLD`Stabs := [[ [* UU!(u@unit_map), 1 *]
                      : u in minimal_generators(sub< U | [u@@unit_map : u in units] >)]];
@@ -273,6 +357,7 @@ function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs
   StabOrders := [Integers()| ];
 
   elts := Set(P1);
+  
  
   vprintf ModFrmHil, 2: "ProjectiveLineOrbits: "; 
   vtime ModFrmHil, 2:
@@ -285,7 +370,10 @@ function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs
     // run through images of e under units,
     // TO DO: skip acting by units[1] = +-1
     for j := 1 to #units do
+      // split_units[j] contains the image of the jth unit
+      // under the residue map to M_2(ZF/N)
       e0 := split_units[j] * e;
+
       _, e1 := P1rep(e0, false, false);
       if e1 notin orbit then
         Exclude(~elts, e1);
@@ -317,14 +405,30 @@ function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs
 
   vprintf ModFrmHil, 2: "Stabilizers %o\n", Multiset(StabOrders);
 
+  // if the nebentypus is nontrivial, we compute its 
+  // "Dirichlet part" (its restriction to the ramified primes)
+  // as well as matrices in GL2(ZF/N) representing the 
+  // elements of P1 which get used later.
+  if chi cmpne 0 then
+    assert Type(chi) eq GrpHeckeElt;
+    psi := FiniteModulusCharFromHeckeChar(chi);
+    CosetRepDict := coset_rep_dict(P1, P1rep, d, quot);
+  else
+    psi := 0;
+    CosetRepDict := 0;
+  end if;
+
   PLD := rec< ProjectiveLineData |
              Level:=d,
+             Quotient:=quot,
              P1List:=P1,
              P1Rep:=P1rep,
              FD:=FD,
              Lookuptable:=Lookuptable,
              StabOrders:=StabOrders,
-             splitting_map:=split_map
+             splitting_map:=split_map,
+             Character:=psi,
+             CosetRepDict:=CosetRepDict
         >;
   if DoStabs then
     PLD`Stabs:=Stabs;
@@ -358,13 +462,13 @@ end function;
 // split_map LO -> M_2(O/d),
 // weight_map = weight_rep
 
-function HMSDF(P1, P1rep, LO, d, split_map, weight_map, weight_dim, wt_base_field)
+function HMSDF(P1, P1rep, LO, d, split_map, weight_map, weight_dim, wt_base_field : chi:=0)
 
   U, unit_map:=UnitGroup(LO); 
   units:=[Algebra(LO)! unit_map(s): s in U];
   // Dembele-Voight write the units as Gamma (or Gamma_i).
   // Now, we compute the action of Gamma on P^1(ZF / d)
-  PLD:=ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map); 
+  PLD:=ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : chi:=chi); 
   F:=wt_base_field;
   // the jth entry of stabs consists of a list of 
   // elements in Gamma which stabilize the 
@@ -429,6 +533,7 @@ function HilbertModularSpaceDirectFactors(M)
 
     vprintf ModFrmHil, 2: "Projective line modulo ideal of norm %o: ", Norm(d);
     vtime ModFrmHil, 2:
+    
     P1, P1rep := ProjectiveLine(quo<Order(d)|d> : Type:="Matrix");
 
     if not assigned M`splitting_map then
@@ -481,7 +586,10 @@ function HilbertModularSpaceDirectFactors(M)
       wd := M`weight_dimension;
       wF := M`weight_base_field;
  
-      HMDFs := [HMSDF(P1, P1rep, LO, d, split_map, wr, wd, wF) : LO in LOs];
+      chi := (IsTrivial(DirichletCharacter(M)))
+        select 0 else DirichletCharacter(M);
+
+      HMDFs := [HMSDF(P1, P1rep, LO, d, split_map, wr, wd, wF : chi:=chi) : LO in LOs];
 
     end if; // parallel weight 2
 
