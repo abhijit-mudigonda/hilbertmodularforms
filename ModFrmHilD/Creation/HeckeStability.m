@@ -133,7 +133,7 @@ intrinsic HeckeStabilityCuspBasis(
       end if;
       // TODO abhijitm this might be problematic, I'm a bit confused about the
       // primitivization step still
-      chi_eis_prim := AssociatedPrimitiveCharacter(chi_eis^-1);
+      chi_eis_prim := AssociatedPrimitiveCharacter(chi_eis);
       chi_Mkl := chi * chi_eis;
     end if;
 
