@@ -1154,7 +1154,9 @@ function AtkinLehnerDefiniteBig(M, p)
    nCFD := [#xx`CFD : xx in HMDF];
    h := #HMDF;
    wd := M`weight_dimension; // = 1 for weight2
-   F := M`weight_base_field; // = Q for weight2
+   // Use hecke_matrix_field if available (which includes compositum with nebentypus field),
+   // otherwise fall back to weight_base_field
+   F := assigned M`hecke_matrix_field select M`hecke_matrix_field else M`weight_base_field;
    sm := M`splitting_map;
 
    tp := get_tps(M, pe);
@@ -1360,7 +1362,7 @@ function DegeneracyDown1DefiniteBig(M, p)
    HMDF := M`ModFrmHilDirFacts; 
    h := #HMDF;
    wd := M`weight_dimension; // = 1 for weight2
-   F := M`weight_base_field;
+   F := M`hecke_matrix_field;
 
    P1N := HMDF[1]`PLD`P1List;
 
@@ -1370,8 +1372,8 @@ function DegeneracyDown1DefiniteBig(M, p)
    C := P1_congruence_classes(P1N, N, Np);
 
    weight2 := Seqset(Weight(M)) eq {2};
-assert weight2;
-assert (M`DirichletCharacter cmpeq 1) or IsTrivial(M`DirichletCharacter);
+   assert weight2;
+   assert NebentypusOrder(M) eq 1;
 
    // TO DO: easy case where N/p = 1, get the matrix just using stab_orders
 
@@ -1382,7 +1384,7 @@ assert (M`DirichletCharacter cmpeq 1) or IsTrivial(M`DirichletCharacter);
 
       dl := wd*#HMDF[l]`CFD;
       if dl eq 0 then
-assert false;
+         assert false;
          continue;
       end if;
 
@@ -1577,7 +1579,8 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    A,B:= BasisMatrixDefinite(MA);
 
 weight2 := Seqset(Weight(M)) eq {2};
-assert not weight2;
+weight2trivchar := weight2 and (NebentypusOrder(M) eq 1);
+assert not weight2trivchar;
 
    O := Integers(BaseField(M));
    D := Discriminant(QuaternionOrder(M));
@@ -1652,8 +1655,9 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite(M)
    assert IsDefinite(M); 
 
    weight2 := Seqset(Weight(M)) eq {2};
-   if not weight2 then
-      // TO DO implement IP
+   weight2trivchar := weight2 and (NebentypusOrder(M) eq 1);
+   if not weight2trivchar then
+      // TO DO implement IP for nontrivial nebentypus
       ComputeBasisMatrixOfNewSubspaceDefinite_general(M);
       return;
    end if;         
@@ -1675,7 +1679,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite(M)
                        Norm(N), [<Norm(t[1]), t[2]>  : t in Factorization(N)];
    IndentPush();
 
-   eisenstein_present := weight2;
+   eisenstein_present := weight2trivchar;
    Ds := <>;
    for t in Factorization(N) do
       P, e := Explode(t);
