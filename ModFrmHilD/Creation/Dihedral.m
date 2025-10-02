@@ -274,7 +274,7 @@ intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
   Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
 
   // if k is nonparallel then induced characters can only come from CM extensions
-  if not IsParallel(Weight(Mk)) then
+  if not (IsParallel(Weight(Mk)) and Weight(Mk)[1] eq 1) then
     Ks := [K : K in Ks | IsTotallyComplex(K)];
   end if;
 
