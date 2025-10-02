@@ -629,8 +629,11 @@ end function;
 function InnerProductMatrixBig(M)
   if not assigned M`InnerProductBig then
     assert not assigned M`Ambient;
+    // TODO abhijitm actually, we can use the inner product matrix
+    // even when the character is nontrivial
     bool, w := IsParallelWeight(M);
-    if bool and w eq 2 then
+    bool and:= (NebentypusOrder(M) eq 1);
+    if bool and (w eq 2) then
       // Weight 2: inner product is given by the usual mass = 1/#stabilizer
       easy := Level(M) eq Discriminant(QuaternionOrder(M));
       rids := get_rids(M);

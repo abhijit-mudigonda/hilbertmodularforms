@@ -1266,10 +1266,13 @@ end intrinsic;
 intrinsic InnerProductMatrix(M::ModFrmHil) -> Mtrx
 {The natural Hecke-invariant inner product on the Hilbert modular forms space M}
 
+  // TODO abhijitm actually, there should be an inner product even when
+  // the character is nontrivial
   if not assigned M`InnerProduct then
     require IsDefinite(M) and basis_is_honest(M): 
                               "Not implemented for this space";
     bool, w := IsParallelWeight(M);
+    bool and:= (NebentypusOrder(M) eq 1);
     require bool and w eq 2 : "Not implemented for this space"; // TO DO
 
     IPbig := InnerProductMatrixBig(TopAmbient(M));

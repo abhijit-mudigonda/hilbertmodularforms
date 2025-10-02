@@ -190,14 +190,19 @@ function basis_matrix(M)
         // then we can find an honest basis for M  
         useIP := false;
         if basis_is_honest(MA) then
-            try 
-                IP := InnerProductMatrix(MA);
-                useIP := true;
-            catch ERROR
-                if "implemented" notin ERROR`Object then 
-                    error ERROR`Object;
-                end if;
-            end try;
+            // Check if inner product is implemented before trying to use it
+            bool, w := IsParallelWeight(MA);
+            bool and:= (NebentypusOrder(MA) eq 1);
+            if bool and w eq 2 then
+                try 
+                    IP := InnerProductMatrix(MA);
+                    useIP := true;
+                catch ERROR
+                    if "implemented" notin ERROR`Object then 
+                        error ERROR`Object;
+                    end if;
+                end try;
+            end if;
         end if;
         vprintf ModFrmHil: 
             "Using naive method to determine new subspace (%ousing inner product)\n", 
