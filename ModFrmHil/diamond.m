@@ -76,15 +76,13 @@ function operator(M, p, op)
 
     MA := TopAmbient(M);
     case op:
-      when "Hecke"   : Tp_big := HeckeOperatorDefiniteBig(MA, p);
+      when "Hecke"   : Tp_big, p_reps := HeckeOperatorDefiniteBig(MA, p);
       when "AL"      : Tp_big := AtkinLehnerDefiniteBig(MA, p);
       when "DegDown1": Tp_big := DegeneracyDown1DefiniteBig(MA, p);
       when "DegDownp": Tp_big := DegeneracyDownpDefiniteBig(MA, p);
       when "Diamond" : Tp_big := DiamondOperatorDefiniteBig(MA, p);
     end case;
     Tp := restriction(M, Tp_big);
-    // TODO abhijitm, this never gets used, it's just to assign something
-    p_reps := [1];
 
   else // indefinite quat order
 
