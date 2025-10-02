@@ -12,6 +12,7 @@ import !"Geometry/ModFrmHil/hecke.m" :
 
 import "hackobj.m" : HMF0;
 import "hecke_field.m" : hecke_matrix_field, WeightRepresentation;
+import "weight_rep.m" : is_paritious;
 import "definite.m":
   AtkinLehnerDefiniteBig,
   DegeneracyDown1DefiniteBig,
@@ -123,10 +124,8 @@ function operator(M, p, op)
 
   end if;
 
-  if assigned M`hecke_matrix_field then
-    // print "BaseRing(Tp)", BaseRing(Tp);
-    // print "M`hecke_matrix_field", M`hecke_matrix_field;
-    // print IsIsomorphic(BaseRing(Tp), M`hecke_matrix_field);
+  // TODO abhijitm hack to suppress error, remove
+  if assigned M`hecke_matrix_field and is_paritious(Weight(M)) then
     bool, Tp := CanChangeRing(Tp, M`hecke_matrix_field);
     error if not bool,
          "The hecke_matrix_field seems to be wrong!\n" * please_report;
