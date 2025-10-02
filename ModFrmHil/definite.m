@@ -1002,8 +1002,9 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
   // Caching
   // HeckeBig and HeckeBigColumns must be assigned together
 
-  cached, Tp := IsDefined(M`HeckeBig, p);
+  cached, tup := IsDefined(M`HeckeBig, p);
   if cached then 
+    Tp, p_rep := Explode(tup);
     Tp := Matrix(Tp);
     _, old_cols := IsDefined(M`HeckeBigColumns, p);
     if Columns cmpeq "all" then
@@ -1011,7 +1012,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
     end if;
     columns := [j : j in Columns | j notin old_cols];
     if IsEmpty(columns) then
-      return Tp;
+      return Tp, p_rep;
     end if;
   else
     old_cols := [];
@@ -1133,6 +1134,8 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
     row := 0; 
     col := 0;
 
+    // dummy value, in case it doesn't get set later
+    lambda := 1;
     for m in inds do 
       // When not parallel weight 2 trivial nebentypus,
       // Bcolumns is [1 .. h], where h is the class number 
@@ -1143,6 +1146,17 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
           bool, tpml := IsDefined(tp, <m,l>);
 
           if bool then
+            // this isn't actually used if we are in paritious weight
+            // so we don't bother with the check in this case
+            lambda := Norm(tpml[1]);
+            if not is_paritious(Weight(M)) then
+              // require that all the pi_i have the same reduced norm
+              assert #{Norm(x) : x in tpml} eq 1;
+              // TODO abhijitm can remove some of these asserts later
+              assert Norm(lambda) eq Norm(p);
+              assert IsTotallyPositive(lambda);
+            end if;
+
             if weight2trivchar then
 
               PLDl := HMDF[l]`PLD;
@@ -1259,7 +1273,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
   end if;
 
   // new columns were computed, so renew the cache
-  M`HeckeBig[p] := SparseMatrix(Tp);
+  M`HeckeBig[p] := <SparseMatrix(Tp), lambda>;
   M`HeckeBigColumns[p] := Sort(old_cols cat columns);
 //"Now got columns",  M`HeckeBigColumns[p]; M`HeckeBig[p];
 
@@ -1279,7 +1293,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
     end if;
   end if;
 
-  return Tp;
+  return Tp, [lambda];
 end function;
 
 //////////////////////////////////////////////////////////////////////////////
