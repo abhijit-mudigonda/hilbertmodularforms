@@ -1813,14 +1813,15 @@ intrinsic IsArithmeticWeight(F::Fld, k::SeqEnum[RngIntElt] : CentralCharacter:="
    end if;
 
    n := [k[i] - 2 : i in [1..#k]];
+   m := [(C - n[i])/2 : i in [1..#k]];
 
    if not forall{m: m in k| IsEven(m) and (m ge 2)} and
       not forall{m: m in k| IsOdd(m) and (m ge 2)}
    then
      // TODO abhijitm this is terrible practice
-     return false, _, n, C;
+     return false, m, n, C;
    end if;
-   m := [Integers()| (C - n[i])/2 : i in [1..#k]];
+   m := [Integers()!m_i : m_i in m];
 
 //printf "Arithmetic weight: m = %o, n = %o, C = %o\n", m, n, C;
    return true, m, n, C;
