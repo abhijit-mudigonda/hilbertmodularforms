@@ -132,6 +132,33 @@ function SIntegralPseudoBasis(OH,S) // (OH::AlgAssVOrd, S::SeqEnum) -> SeqEnum
   return NOHB;
 end function;
 
+function get_compositum_field(wt_base_field, chi)
+  /*
+   * Computes the compositum of the weight base field and the field of definition
+   * of the nebentypus character chi. This is needed because twist_factor can
+   * produce elements in the cyclotomic field when chi is nontrivial.
+   *
+   * Input:
+   *   wt_base_field - The base field for the weight representation
+   *   chi - The nebentypus character (0 for trivial, or a GrpDrchNFElt)
+   *
+   * Output:
+   *   The compositum field over which quaternionic modular forms should be defined
+   */
+  if Type(chi) eq RngIntElt or (Type(chi) eq GrpHeckeElt and IsTrivial(chi)) then
+    // Trivial nebentypus case - just use the weight base field
+    return wt_base_field;
+  else
+    // Nontrivial nebentypus - need compositum with cyclotomic field
+    chi_field := (Order(chi) le 2) select Rationals() else CyclotomicField(Order(chi));
+    if chi_field cmpeq Rationals() then
+      return wt_base_field;
+    else
+      return Compositum(wt_base_field, chi_field);
+    end if;
+  end if;
+end function;
+
 function QuotientSplittingData0(OH, OHB, pr, e)
   // Given a maximal order OH, a prime ideal pr and an integer e, this return a sequence of matrices
   // (M_i) in M_2(OK/pr^e) which is a basis of the reduction OH\otimes OK/pr^e\cong M_2(OK/pr^e) as 
