@@ -413,7 +413,7 @@ intrinsic CuspDimension(Mk::ModFrmHilD : version:="trace") -> RngIntElt
 
   // the trace formula does not currently support
   // nonparallel weight
-  if not IsParallel(Weight(Mk)) then
+  if not IsParallel(Weight(Mk)) or not IsTrivial(Character(Mk)) then
     version := "builtin";
   end if;
   
