@@ -1015,23 +1015,28 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
 
   A := Algebra(QuaternionOrder(M));
   N := Level(M);
-  weight2 := Seqset(Weight(M)) eq {2};
+  weight2trivchar := Seqset(Weight(M)) eq {2} and (NebentypusOrder(M) eq 1);
 
   // easy = basis of big space is given by the rids
-  easy := weight2 and N eq Discriminant(QuaternionOrder(M));
+  easy := weight2trivchar and N eq Discriminant(QuaternionOrder(M));
 
   if not assigned M`basis_matrix then
     _ := BasisMatrixDefinite(M : EisensteinAllowed);
   end if;
+  // The big Hecke operator will be a dim x dim matrix.
+  // Note that this dim is *not* generally the 
+  // dimension of the space of quaternionic modular forms,
+  // but rather the dimension of the space in which we embed them.
   dim := Ncols(M`basis_matrix_big);
 
-  F := M`weight_base_field; // = Q for parallel weight 2
+  F := M`hecke_matrix_field; // = Q for parallel weight 2
   if easy then
     h := dim;
   else
     HMDF := M`ModFrmHilDirFacts; 
-    // dimension of each direct factor,
-    // i.e the number of orbits in the projective line 
+    // i.e the number of orbits in the projective line
+    // (associated to each direct factor)
+    // which contribute nontrivially to the basis
     nCFD := [#xx`CFD : xx in HMDF];
     // the number of direct factors, i.e. the class number
     // of O_0(1)
@@ -1049,18 +1054,26 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
   end if;
   assert not IsEmpty(columns) and columns subset [1..dim];
 
-  if not weight2 then // currently, higher weight doesn't use Columns
+  if not weight2trivchar then // currently, higher weight and nontrivial nebentypus don't use Columns
     columns := [1 .. dim];
   end if;
 
   if easy then
     bcolumns := columns;
     Bcolumns := columns;
-  elif columns eq [1 .. dim] then // full matrix 
+  elif columns eq [1 .. dim] then 
+    // Full matrix - this always happens
+    // outside of parallel weight 2
+    // 
+    // Each large block, coming from a left order/right ideal class,
+    // has an associated P1, and the matrix consists of 
+    // small blocks for each orbit of this P1 (under the action under
+    // the units of the left order) which contribute nontrivially
+    // to the basis.
     bcolumns := [1 .. dim div wd];
     // one large block for each direct factor
     Bcolumns := [1 .. h];
-  elif weight2 then 
+  elif weight2trivchar then 
     bcolumns := columns;
     Bcolumns := [];
     b := 1;
@@ -1081,6 +1094,9 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
 
 //"Columns:"; Columns; old_cols; columns; bcolumns; Bcolumns;
 
+  // This is independent of the weight and level -- it captures information
+  // about the ideals of the maximal quaternion order O (and in particular
+  // those of p-power reduced norm, I think). 
   tp := get_tps(M, p : rows:=Bcolumns); // rows in precompute_tps are columns here
 
   vprintf ModFrmHil: "%o%o column%o%o of big Hecke matrix (norm %o): ", 
@@ -1106,20 +1122,23 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
     
     checkP1 := Valuation(N,p) gt 0;
 
-    // TODO abhijitm I don't see how this 
-    // is ever not [1 .. #HMDF] because nCFD
-    // is the number of orbits which is always
-    // at least one.
+    // the indices of direct factors where there are actually
+    // orbits that contribute to the basis
     inds := [l : l in [1..#HMDF] | nCFD[l] ne 0];
     row := 0; 
     col := 0;
 
     for m in inds do 
+      // When not parallel weight 2 trivial nebentypus,
+      // Bcolumns is [1 .. h], where h is the class number 
+      // of the maximal order O.
       if m in Bcolumns then
         for l in inds do 
+          // I'm guessing it's undefined only if tpml is empty.
           bool, tpml := IsDefined(tp, <m,l>);
+
           if bool then
-            if weight2 then
+            if weight2trivchar then
 
               PLDl := HMDF[l]`PLD;
               FDl   := PLDl`FD; 
@@ -1148,49 +1167,74 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
             else
 
               PLDl  := HMDF[l]`PLD;
+              // This stores elements of the P1 associated
+              // to the lth right ideal class of O representing 
+              // each orbit (contributing or not)
               FDl   := PLDl`FD; 
+
+              // Same for the mth right ideal class of O
               FDm   := HMDF[m]`PLD`FD; 
+              // This maps a P1 element x to a unit of the lth left order
+              // which takes the orbit representative of x to x.
               lookup:= PLDl`Lookuptable; 
               P1rep := PLDl`P1Rep;
 
+              chi := DirichletCharacter(M);
+              // true iff the order of the nebentypus is bigger than 2
+              irrat_neb_field := Type(chi) ne RngIntElt 
+                and not IsTrivial(chi) and Order(chi) gt 2;
+
+              // This is an indexed set of the contributing orbits of the 
+              // lth P1 
               CFDl := HMDF[l]`CFD; 
+              // Same for the mth P1
               CFDm := HMDF[m]`CFD; 
+              // These are the units of the lth left order
               units1 := HMDF[l]`max_order_units; 
               weight_map := HMDF[l]`weight_rep; 
 
               // the row/column block corresponding to the
               // pair of direct factors (l, m) has dimension
               // (wd * #CFDl) x (wd * #CFDm) because #CFDl 
-              // and #CFDm are the respective numbers of projective line 
-              // orbits, and for each of these we have an element of Wk(C)
+              // and #CFDm are the respective numbers of (contributing) 
+              // projective line orbits, and for each of these we have 
+              // an element of Wk(C).
+              //
+              // As a sanity check, these are the number of columns associated
+              // to the respective big blocks in basis_matrix. 
               Tplm := Matrix(F, wd*#CFDl, wd*#CFDm, []);
-
+              
               for ll := 1 to #tpml do
                 // tpml[ll] is an element of O, and mat is the element mod N
                 mat := tpml[ll] @ sm;
+                // over contributing orbits of mm
                 for mm := 1 to #CFDm do
                   // FDm[CFDm[mm]] is an element of the projective line,
                   // so applying mat to it makes sense
                   u := mat * FDm[CFDm[mm]];
-                  // TODO abhijitm what is the bool?
                   bool, u0 := P1rep(u, checkP1, false);
                   if bool then
+                    // this lookup is in the P1 associated to ll!
+                    // It finds the orbit in ll's P1 associated to 
+                    // tpml[ll] * FDM[CFDm[mm]]
                     elt_data := lookup[u0]; 
+                    // elt_data[1] is an index in the fundamental domain of the 
+                    // P1 associated to ll. 
                     n := Index(CFDl, elt_data[1]);
+                    // If n is 0 then there's no contribution from this orbit
                     if n ne 0 then
-                      // TODO abhijitm this is very misleading,
-                      // units1 is not the units of O_0(1)* but rather
-                      // the units of the left order corresponding to this 
-                      // direct factor
-                      //
+                      // elt_data[2] stores the 
                       // anyways, units1[elt_data[2]]^-1 is the unit which takes
                       // the orbit rep of u0 to u0. 
                       quat1 := units1[elt_data[2]]^-1 * tpml[ll]; 
                       X := ExtractBlock(Tplm, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
-                      // in the weight 2 case with no Shapiro's lemma, the entry
-                      // is 1 for each element of tpml, corresponding to the trivial
-                      // representation. 
-                      X +:= weight_map(quat1);
+                      weight_matrix := weight_map(quat1);
+                      // Only use StrongCoerceMatrix when nebentypus order > 2 to avoid unnecessary overhead
+                      if irrat_neb_field then 
+                        weight_matrix := StrongCoerceMatrix(F, weight_matrix);
+                      end if;
+                      Y := twist_factor(PLDl, quat1, FDm[CFDm[mm]])^-1 * weight_matrix;
+                      X := X + Y;
                       InsertBlock(~Tplm, X, (n-1)*wd+1, (mm-1)*wd+1);
                     end if;
                   end if;
