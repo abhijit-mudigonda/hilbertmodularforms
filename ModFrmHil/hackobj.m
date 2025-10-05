@@ -466,6 +466,8 @@ function HMF0(F, N, Nnew, Chi, k, C)
   M`Field := F;
   M`Level := N;
   M`NewLevel := Nnew;
+  // The (finite) modulus of chi should be N
+  assert Modulus(Chi) eq N;
   M`DirichletCharacter := Chi;
   M`Weight := k;
   M`CentralCharacter := C;
