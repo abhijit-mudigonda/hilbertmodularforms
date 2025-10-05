@@ -907,6 +907,18 @@ intrinsic IsNew(M::ModFrmHil) -> BoolElt
   return assigned M`is_new and M`is_new; // but don't set is_new to false
 end intrinsic;
 
+intrinsic NebentypusOrder(M::ModFrmHil) -> RngIntElt
+  {returns the order of DirichletCharacter(M)}
+  chi := DirichletCharacter(M);
+  // sometimes chi is set to 1 or 0
+  if Type(chi) eq RngIntElt then
+    return 1;
+  else
+    assert Type(chi) eq GrpHeckeElt;
+    return Order(chi);
+  end if;
+end intrinsic;
+
 function Ambient(M)
   if assigned M`Ambient then
     return M`Ambient;
