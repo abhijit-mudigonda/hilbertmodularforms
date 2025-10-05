@@ -46,10 +46,11 @@ function hecke_matrix_field(M)
     if not assigned TopAmbient(M)`weight_base_field then
       _ := WeightRepresentation(TopAmbient(M));
     end if;
-    if is_paritious(Weight(M)) then
+    if is_paritious(Weight(M)) or IsDefinite(M) then
 	    return TopAmbient(M)`weight_base_field;
     else
-      // if the weight is nonparitious, the Hecke matrices on the entire
+      // if the weight is nonparitious and we are using
+      // the indefinite method, the Hecke matrices on the entire
       // H1 will be over the weight base field but the + and - subspaces
       // will be defined over a quadratic extension
       O := QuaternionOrder(M);
