@@ -4,7 +4,7 @@ import "ModFrmHil/definite.m" : BasisMatrixDefinite;
 F := QuadraticField(5);
 ZF := Integers(F);
 M := GradedRingOfHMFs(F, 444);
-k := [2, 2];
+k := [3, 3];
 
 /*
 N := ideal<ZF | 4*ZF.2 - 2>;

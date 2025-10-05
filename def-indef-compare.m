@@ -22,11 +22,13 @@ assert Order(chi) eq 1;
 // weight [3, 3] space with quadratic nebentypus
 
 k := [3, 3];
-N := ideal<ZF | 4*ZF.2 - 2>;
+N := 6*ZF;
+
+// N := ideal<ZF | 4*ZF.2 - 2>;
 qq := 2*ZF;
 H := HeckeCharacterGroup(N, [1, 2]);
 chi := H.1;
-assert HeckeCharLabel(chi) eq "-5.0.1_20.1_2u1u1.2u";
+// assert HeckeCharLabel(chi) eq "-5.0.1_20.1_2u1u1.2u";
 assert Order(chi) eq 2;
 
 // COMPUTE USING DEFINITE METHOD
@@ -45,7 +47,7 @@ for pp in PrimesUpTo(MAX_PRIME, F) do
   hecke_mtrx := HeckeOperatorDefiniteBig(M, pp);
   res_hecke_mtrx := restriction(M, hecke_mtrx);
   def_hecke_mtrxs[pp] := res_hecke_mtrx;
-  print <Norm(pp), IdealOneLine(pp), CharacteristicPolynomial(res_hecke_mtrx)>;
+  // print <Norm(pp), IdealOneLine(pp), CharacteristicPolynomial(res_hecke_mtrx)>;
 end for;
 
 // COMPUTE USING INDEFINITE METHOD (away from qq = 2*ZF)
@@ -70,22 +72,31 @@ primes := [pp : pp in PrimesUpTo(MAX_PRIME, F) | pp ne qq];
 for pp in primes do
   hecke_mtrx := HeckeMatrix2(Gamma, N_indef, pp, k, chi_indef);
   indef_hecke_mtrxs[pp] := hecke_mtrx;
-  print <Norm(pp), IdealOneLine(pp), SquareRoot(CharacteristicPolynomial(hecke_mtrx))>;
+  // print <Norm(pp), IdealOneLine(pp), SquareRoot(CharacteristicPolynomial(hecke_mtrx))>;
 end for;
 
 // COMPUTE USING HECKE STABILITY
 
 print "------------ HECKE STABILITY ------------";
-GRing := GradedRingOfHMFs(F, 200);
+GRing := GradedRingOfHMFs(F, 500);
 Mk := HMFSpace(GRing, N, k, chi);
 Sk := HeckeStabilityCuspBasis(Mk : prove:=false, stable_only:=true);
-assert #Sk eq 2;
-Ek := EisensteinBasis(Mk);
-assert #Ek eq 4;
+assert #Sk eq 4;
+// Ek := EisensteinBasis(Mk);
+// assert #Ek eq 4;
 
 /* For the sanity check [2, 2] case
 Sk := CuspFormBasis(Mk);
 assert #Sk eq 1;
 */
 
-
+for pp in primes do
+  print "--------";
+  print <Norm(pp), IdealOneLine(pp)>;
+  // print "definite";
+  assert CharacteristicPolynomial(def_hecke_mtrxs[pp]) eq CharacteristicPolynomial(HeckeMatrix(Sk, pp));
+  assert IsDivisibleBy(CharacteristicPolynomial(HeckeMatrix(Sk, pp)), SquareRoot(CharacteristicPolynomial(indef_hecke_mtrxs[pp])));
+  // print Factorization(CharacteristicPolynomial(def_hecke_mtrxs[pp]));
+  // print "indefinite";
+  // print Factorization(SquareRoot(CharacteristicPolynomial(indef_hecke_mtrxs[pp])));
+end for;
