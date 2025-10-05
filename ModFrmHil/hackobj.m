@@ -466,8 +466,8 @@ function HMF0(F, N, Nnew, Chi, k, C)
   M`Field := F;
   M`Level := N;
   M`NewLevel := Nnew;
-  // The (finite) modulus of chi should be N
-  assert Modulus(Chi) eq N;
+  // The (finite) modulus of chi should be N if the character is nontrivial
+  assert (Type(Chi) cmpeq RngIntElt) or (Order(Chi) eq 1) or (Modulus(Chi) eq N);
   M`DirichletCharacter := Chi;
   M`Weight := k;
   M`CentralCharacter := C;
@@ -481,7 +481,7 @@ function HMF0(F, N, Nnew, Chi, k, C)
   M`DegDown1 := AssociativeArray();
   M`DegDownp := AssociativeArray();
   M`Diamond := AssociativeArray();
-  if forall{w : w in k | w eq 2} then
+  if forall{w : w in k | w eq 2} and (Type(Chi) eq RngIntElt or Order(Chi) le 2) then
     M`hecke_matrix_field := Rationals();
     M`hecke_matrix_field_is_minimal := true;
   else

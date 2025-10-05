@@ -12,7 +12,7 @@ freeze;
 //
 //////////////////////////////////////////////////////////////////////////////
 
-import "hecke_field.m" : DegeneracyMapDomain, WeightRepresentation;
+import "hecke_field.m" : DegeneracyMapDomain, WeightRepresentation, hecke_matrix_field;
 import "hecke.m" : please_report, pseudo_inverse, basis_is_honest;
 import "weight_rep.m" : FiniteModulusCharFromHeckeChar, is_paritious;
 import !"Geometry/ModFrmHil/precompute.m" : get_rids, get_tps;
@@ -712,9 +712,7 @@ function HilbertModularSpaceDirectFactors(M)
       // For nontrivial nebentypus, we need to work over the compositum field
       // because twist_factor produces elements in the cyclotomic field
       
-      hecke_mtrx_field := get_compositum_field(M`weight_base_field, chi);
-      print "!!!!!!!!!!!! setting M`hecke_matrix_field to", hecke_mtrx_field;
-      M`hecke_matrix_field := hecke_mtrx_field;
+      hecke_mtrx_field := hecke_matrix_field(M);
       
       // print "number of left orders", #LOs, LOs;
       // Each HMSDF returns a ModFrmHilDirFact record, and there's one for each

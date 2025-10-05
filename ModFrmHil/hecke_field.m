@@ -47,7 +47,17 @@ function hecke_matrix_field(M)
       _ := WeightRepresentation(TopAmbient(M));
     end if;
     if is_paritious(Weight(M)) or IsDefinite(M) then
-	    return TopAmbient(M)`weight_base_field;
+      // TODO abhijitm I'm not entirely clear on why we don't
+      // set M`hecke_matrix_field here. 
+      H := TopAmbient(M)`weight_base_field;
+      if not (NebentypusOrder(M) eq 1) then
+        // nontrivial character
+        chi := DirichletCharacter(M);
+        H := get_compositum_field(H, chi);
+      end if;
+      print "!!!!!!!!! setting M`hecke_matrix_field in hecke_matrix_field", H;
+      M`hecke_matrix_field := H;
+	    return H;
     else
       // if the weight is nonparitious and we are using
       // the indefinite method, the Hecke matrices on the entire
@@ -87,12 +97,19 @@ end function;
 function minimal_hecke_matrix_field(M)
   bool, minimal := HasAttribute(M, "hecke_matrix_field_is_minimal");
   if bool and minimal then
+    // this is fine because hecke_matrix_field_is_minimal is only set 
+    // by SetRationalBasis (which also sets hecke_matrix_field) or 
+    // by HMF0 in parallel weight 2 cases with nebentypus order at most 2.
     H := M`hecke_matrix_field;
   elif assigned M`Ambient then
     H := minimal_hecke_matrix_field(M`Ambient);
   elif IsParallelWeight(M) then
-     H := Rationals();
-	   K := hecke_matrix_field(M);
+    K := hecke_matrix_field(M);
+    if NebentypusOrder(M) le 2 then
+      H := Rationals();
+    else
+      H := CyclotomicField(Order(DirichletCharacter(M)));
+    end if;
   else
     vprintf ModFrmHil: "Figuring out the \'Hecke matrix field\' ... "; 
     time0 := Cputime();
@@ -117,17 +134,11 @@ function minimal_hecke_matrix_field(M)
     H := FixedField(Kgal, Gw_in_Aut);  
     is_sub, _ := IsSubfield(H, Kgal);
     assert is_sub;
+
+    H := get_compositum_field(H, DirichletCharacter(M));
+    
     vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
-  end if;
-  
-  /*
-  // When the nebentypus is nontrivial, we need the compositum with the 
-  // field of definition of the character, analogous to definite.m
-  if not is_trivial_nebentypus(M) then
-    chi := DirichletCharacter(M);
-    H := get_compositum_field(H, chi);
-  end if;
-  */
+  end if; 
   
   return H;
 end function;
