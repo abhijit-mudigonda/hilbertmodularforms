@@ -32,11 +32,6 @@ import "definite.m":
 
 forward WeightRepresentation;
 
-/**************** New Attributes **********************/
-
-declare attributes ModFrmHil : minimal_hecke_field_emb,
-	                       splitting_field_emb_weight_base_field;
-
 /********************************************************/
 
 // originally from hecke.m
@@ -91,14 +86,11 @@ function minimal_hecke_matrix_field(M)
   bool, minimal := HasAttribute(M, "hecke_matrix_field_is_minimal");
   if bool and minimal then
     H := M`hecke_matrix_field;
-	  M`minimal_hecke_field_emb := IdentityHomomorphism(H);
   elif assigned M`Ambient then
     H := minimal_hecke_matrix_field(M`Ambient);
-	  M`minimal_hecke_field_emb := M`Ambient`minimal_hecke_field_emb;
   elif IsParallelWeight(M) then
      H := Rationals();
 	   K := hecke_matrix_field(M);
-	   M`minimal_hecke_field_emb := hom<H->K|>;
   else
     vprintf ModFrmHil: "Figuring out the \'Hecke matrix field\' ... "; 
     time0 := Cputime();
@@ -121,16 +113,8 @@ function minimal_hecke_matrix_field(M)
     Gw := sub< G | [g : g in G | act(w,g) eq w] > where w is Weight(M);
     Gw_in_Aut := sub< Aut | [h@@Aut_to_G : h in Generators(Gw)] >;
     H := FixedField(Kgal, Gw_in_Aut);  
-    // add here the field embedding once we fix that
-    is_sub, emb_fixed := IsSubfield(H, Kgal);
+    is_sub, _ := IsSubfield(H, Kgal);
     assert is_sub;
-    assert assigned M`weight_rep;
-    assert assigned M`splitting_field_emb_weight_base_field; // WeightRepresentation should set it
-    M`minimal_hecke_field_emb := M`splitting_field_emb_weight_base_field * emb_fixed;
-
-    // Making sure we composed in the right order
-    assert Domain(M`minimal_hecke_field_emb) eq H;
-    
     vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
   end if;
   return H;
@@ -159,7 +143,6 @@ function DegeneracyMapDomain(M, d)
    DM`weight_dimension:=M`weight_dimension;
    if Seqset(Weight(M)) ne {2} then // nontrivial weight
       DM`weight_rep:=M`weight_rep;
-      DM`splitting_field_emb_weight_base_field := M`splitting_field_emb_weight_base_field;
    end if;
    return DM;
 end function;
@@ -185,11 +168,9 @@ function WeightRepresentation(M) // ModFrmHil -> Map
          M`weight_base_field := Rationals();
          M`weight_dimension := 1; 
          QQ := Rationals();
-         M`splitting_field_emb_weight_base_field := hom<QQ->QQ|>;
       else
          splitting_seq, K, weight_field := Splittings(H);
          Fspl := F`SplittingField[1];
-         M`splitting_field_emb_weight_base_field := hom<Fspl->K | K!Fspl.1>;
          M`weight_base_field:=K;
          vprintf ModFrmHil: "Field chosen for weight representation:%O", weight_field, "Maximal";
          vprintf ModFrmHil: "Using model of weight_field given by %o over Q\n", DefiningPolynomial(K);
