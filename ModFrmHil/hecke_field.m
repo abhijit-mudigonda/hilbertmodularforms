@@ -28,7 +28,8 @@ import "weight_rep.m" : weight_map_arch, is_paritious;
 import "hecke.m" : get_image_of_eps_nonparit;
 import "definite.m":
   _ResidueMatrixRing,
-  HMSDF;
+  HMSDF,
+  get_compositum_field;
 
 forward WeightRepresentation;
 
@@ -117,6 +118,16 @@ function minimal_hecke_matrix_field(M)
     assert is_sub;
     vprintf ModFrmHil: "Time: %o\n", Cputime(time0);
   end if;
+  
+  /*
+  // When the nebentypus is nontrivial, we need the compositum with the 
+  // field of definition of the character, analogous to definite.m
+  if not is_trivial_nebentypus(M) then
+    chi := DirichletCharacter(M);
+    H := get_compositum_field(H, chi);
+  end if;
+  */
+  
   return H;
 end function;
 
