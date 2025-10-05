@@ -28,7 +28,7 @@ import "definite.m" : BasisMatrixDefinite,
 import "diamond.m" : operator;
 import "hecke_field.m" : hecke_matrix_field,
                          minimal_hecke_matrix_field;
-import "weight_rep.m" : is_paritious;
+import "weight_rep.m" : is_paritious; 
 
 debug := false;
 
@@ -653,6 +653,7 @@ function hecke_algebra_dimension(M)
 end function;
 
 function hecke_algebra(M : generator:=false, minimal:=true)
+  print "-------- calling hecke_algebra on M", M;
 
   // don't use cached hecke_algebra if basis has since been changed to a rational_basis
   use_cached_hecke_algebra := false;
@@ -862,6 +863,7 @@ end if;
 
   end if; // needed to find generator
 
+  print "finishing hecke_algebra and returning!";
   return M`hecke_algebra;
 end function;
 
@@ -948,11 +950,13 @@ intrinsic SetRationalBasis(M::ModFrmHil)
  splitting field of K.)  The basis is then fixed, and all subsequent 
  computations with M will be done relative to this basis.}
 
+  print "\n !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Calling SetRationalBasis";
   if IsBianchi(M) 
      or assigned M`QuaternionOrder and not IsDefinite(M) 
      or Seqset(Weight(M)) eq {2}
      or Dimension(M) eq 0 
   then
+    print "!!!!!!!!!!!!!!!!!!!!!!! calling line 961";
     M`hecke_matrix_field := Rationals();
   end if;
 
@@ -1004,6 +1008,7 @@ intrinsic SetRationalBasis(M::ModFrmHil)
 
   if not M`hecke_matrix_field_is_minimal then
     H := minimal_hecke_matrix_field(M);
+    print "!!!!!!!! setting M`hecke_matrix_field to minimal_hecke_mtrx_field", H;
     M`hecke_matrix_field := H;
     M`hecke_matrix_field_is_minimal := true;
     // Coerce stored Hecke matrices to the smaller field
