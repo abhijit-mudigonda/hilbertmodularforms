@@ -55,7 +55,6 @@ function hecke_matrix_field(M)
         chi := DirichletCharacter(M);
         H := get_compositum_field(H, chi);
       end if;
-      print "!!!!!!!!! setting M`hecke_matrix_field in hecke_matrix_field", H;
       M`hecke_matrix_field := H;
 	    return H;
     else

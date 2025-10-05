@@ -626,7 +626,6 @@ function HMSDF(P1, P1rep, LO, d, split_map, weight_map, weight_dim, hecke_matrix
   // This is a left inverse of M but Magma is bad with coercions
   N:=Transpose(Solution(Transpose(M), ScalarMatrix(F, Rank(M), 1)));
 
-  print "dim", Nrows(M);
   return rec<ModFrmHilDirFact|PLD:=PLD, CFD:=contrib_orbs, basis_matrix:=M, basis_matrix_inv:=N, 
     		        weight_rep:=weight_map, weight_dimension:=weight_dim, 
                                 weight_base_field:=F, max_order_units:=units>;
@@ -1776,8 +1775,6 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    D := Discriminant(QuaternionOrder(M));
    L := Level(M);
    Lnew := NewLevel(M);
-   print "L", IdealOneLine(L);
-   print "Lnew", IdealOneLine(Lnew);
    assert NewLevel(MA) eq D; 
    N := Lnew/D; 
    assert ISA(Type(N), RngOrdIdl); // integral
@@ -1790,9 +1787,6 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
         | (N / fact_tup[1]^fact_tup[2]) subset Conductor(DirichletCharacter(M))];
    end if;
 
-   print "************ In ComputeBasisMatirxOfNewSubspaceDefinite_general ******";
-   print "N", IdealOneLine(N);
-   print "valid primes", [IdealOneLine(tup[1]) : tup in valid_primes];
    V := VectorSpace(BaseRing(A), Nrows(A)); 
    W := sub<V|>;
    for m := 1 to #valid_primes do
@@ -1803,7 +1797,6 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       vprint ModFrmHil: "Computing oldforms relative to prime of norm", Norm(valid_primes[m][1]);
       time0 := Cputime();
       IndentPush(); 
-      print "definite.m:1770 - about to call DegeneracyMapDomain";
       N1 := DegeneracyMapDomain(MA, L/valid_primes[m][1]);
       if Dimension(N1) eq 0 then
          IndentPop();
