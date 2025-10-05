@@ -713,6 +713,7 @@ function HilbertModularSpaceDirectFactors(M)
       // because twist_factor produces elements in the cyclotomic field
       
       hecke_mtrx_field := get_compositum_field(M`weight_base_field, chi);
+      print "!!!!!!!!!!!! setting M`hecke_matrix_field to", hecke_mtrx_field;
       M`hecke_matrix_field := hecke_mtrx_field;
       
       // print "number of left orders", #LOs, LOs;
@@ -913,6 +914,7 @@ function BasisMatrixDefinite(M : EisensteinAllowed:=false)
 
   if assigned M`Ambient then
 
+    print "calling ComputeBasisMatrixOfNewSubspace";
     ComputeBasisMatrixOfNewSubspaceDefinite(M);
     dim := Nrows(M`basis_matrix);
 
@@ -992,6 +994,7 @@ end function;
 
 function HeckeOperatorDefiniteBig(M, p : Columns:="all")
 
+  // print "HeckeOperatorDefiniteBig", IdealOneLine(p);
   assert not assigned M`Ambient; // M is an ambient
 
   // Caching
@@ -1742,36 +1745,49 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    MA := M`Ambient; // must be assigned with QuaternionOrder (unless NewLevel = Level)
    A,B:= BasisMatrixDefinite(MA);
 
-weight2 := Seqset(Weight(M)) eq {2};
-weight2trivchar := weight2 and (NebentypusOrder(M) eq 1);
-assert not weight2trivchar;
+   weight2 := Seqset(Weight(M)) eq {2};
+   weight2trivchar := weight2 and (NebentypusOrder(M) eq 1);
+   assert not weight2trivchar;
 
    O := Integers(BaseField(M));
    D := Discriminant(QuaternionOrder(M));
    L := Level(M);
    Lnew := NewLevel(M);
+   print "L", IdealOneLine(L);
+   print "Lnew", IdealOneLine(Lnew);
    assert NewLevel(MA) eq D; 
    N := Lnew/D; 
    assert ISA(Type(N), RngOrdIdl); // integral
-   Nfact := Factorization(N);
+   if (NebentypusOrder(M) eq 1) then
+      valid_primes := [fact_tup : fact_tup in Factorization(N)];
+   else
+      // a prime p is fair game if the nebentypus still makes sense
+      // on N / p, i.e. if the conductor of chi divides N / p. 
+      valid_primes := [fact_tup : fact_tup in Factorization(N)
+        | (N / fact_tup[1]^fact_tup[2]) subset Conductor(DirichletCharacter(M))];
+   end if;
 
+   print "************ In ComputeBasisMatirxOfNewSubspaceDefinite_general ******";
+   print "N", IdealOneLine(N);
+   print "valid primes", [IdealOneLine(tup[1]) : tup in valid_primes];
    V := VectorSpace(BaseRing(A), Nrows(A)); 
    W := sub<V|>;
-   for m := 1 to #Nfact do
+   for m := 1 to #valid_primes do
       if Dimension(W) eq Dimension(V) then 
          break; 
       end if;
 
-      vprint ModFrmHil: "Computing oldforms relative to prime of norm", Norm(Nfact[m][1]);
+      vprint ModFrmHil: "Computing oldforms relative to prime of norm", Norm(valid_primes[m][1]);
       time0 := Cputime();
       IndentPush(); 
-      N1 := DegeneracyMapDomain(MA, L/Nfact[m][1]);
+      print "definite.m:1770 - about to call DegeneracyMapDomain";
+      N1 := DegeneracyMapDomain(MA, L/valid_primes[m][1]);
       if Dimension(N1) eq 0 then
          IndentPop();
          continue;
       end if;
 
-      P, eP := Explode(Nfact[m]);
+      P, eP := Explode(valid_primes[m]);
 
       vprintf ModFrmHil: "Degeneracy maps between dimensions %o and %o: ", Dimension(MA), Dimension(N1);
       vtime ModFrmHil:
