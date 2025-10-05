@@ -670,6 +670,11 @@ function HilbertModularSpaceDirectFactors(M)
 
       HMDFs := [];
       Q := Rationals();
+      
+      // For weight 2, the weight representation is the identity map
+      I := IdentityMatrix(Q, 1);
+      Mat1 := Parent(I);
+      weight_rep := map< A -> Mat1 | q :-> I >;
 
       for LO in LOs do 
 
@@ -688,6 +693,7 @@ function HilbertModularSpaceDirectFactors(M)
                 CFD := IndexedSet([1 .. dim]), // TO DO: get rid of this, and the basis_matrices
                 basis_matrix := Id, 
                 basis_matrix_inv := Id, 
+                weight_rep := weight_rep,
                 weight_dimension := 1, 
                 weight_base_field := Q, 
                 max_order_units := units
@@ -912,7 +918,6 @@ function BasisMatrixDefinite(M : EisensteinAllowed:=false)
 
   if assigned M`Ambient then
 
-    print "calling ComputeBasisMatrixOfNewSubspace";
     ComputeBasisMatrixOfNewSubspaceDefinite(M);
     dim := Nrows(M`basis_matrix);
 
@@ -1326,7 +1331,7 @@ function AtkinLehnerDefiniteBig(M, p)
 
    tp := get_tps(M, pe);
 
-   weight2 := Seqset(Weight(M)) eq {2};
+   weight2trivchar := (Seqset(Weight(M)) eq {2}) and (NebentypusOrder(M) eq 1);
 
    Wp := MatrixRing(F, dim) ! 0; 
 
@@ -1407,7 +1412,7 @@ function AtkinLehnerDefiniteBig(M, p)
             _, imN := PLDl`P1Rep(Matrix(1, imN), false, false);
          end if;
 
-         if weight2 then
+         if weight2trivchar then
 
             ll := PLDl`Lookuptable[imN, 1];  
             assert ll gt 0;
@@ -1434,7 +1439,8 @@ function AtkinLehnerDefiniteBig(M, p)
                weight_map := HMDF[l]`weight_rep; 
 
                quat1 := units1[u] ^ -1 * tp_elt[l,k];
-               InsertBlock(~Wp, weight_map(quat1), r, c);
+               // TODO abhijitm double check twist factor
+               InsertBlock(~Wp, twist_factor(PLDl, quat1, FDm[HMDF[m]`CFD[mm]])^-1 * weight_map(quat1), r, c);
             end if;
 
          end if;
@@ -1598,8 +1604,10 @@ end function;
 // in the upward direction, from lower level to higher level.
 // Only implemented when p divides the level only once.
 
-function DegeneracyMapBlock(M1, M2, Tp, sm)
+function DegeneracyMapBlock(M1, M2, Tp, sm : weight2trivchar:=false)
 
+   // M1 and M2 are ModFrmHilDirFact records
+   
    M1PLD  := M1`PLD;
    M2PLD  := M2`PLD;
    d1     := M1PLD`Level; 
@@ -1615,7 +1623,8 @@ function DegeneracyMapBlock(M1, M2, Tp, sm)
 
    Rd1 := quo< Order(d1) | d1 >; // TO DO: don't need this?
 
-   if w eq 1 then // parallel weight 2
+   if weight2trivchar then // parallel weight 2 trivial nebentypus
+      assert w eq 1; // parallel weight 2
 
       B := Matrix(F, w*#FD1, w*#FD2, []);
 
@@ -1643,7 +1652,11 @@ function DegeneracyMapBlock(M1, M2, Tp, sm)
 
       B := Matrix(F, w*#CFD1, w*#CFD2, []);
 
+      // When called from DegeneracyMap, Tp contains the output of 
+      // get_tps(M1, p) for some prime p and M1 the domain of the 
+      // degeneracy map
       for l := 1 to #Tp do
+         
          tpl := Tp[l] @ sm;
          for m := 1 to #CFD2 do
             u := tpl * FD2[CFD2[m]];
@@ -1653,16 +1666,16 @@ function DegeneracyMapBlock(M1, M2, Tp, sm)
                elt_data := lookup[u01]; 
                n := Index(CFD1, elt_data[1]);
                if n ne 0 then 
-                  quat1:=units1[elt_data[2]]^-1*Tp[l]; 
-                  mat1:=ExtractBlock(B, (n-1)*w+1, (m-1)*w+1, w, w);
-                  mat1+:=weight_map(quat1);
+                  quat1 := units1[elt_data[2]]^-1*Tp[l]; 
+                  mat1 := ExtractBlock(B, (n-1)*w+1, (m-1)*w+1, w, w);
+                  mat1 +:= twist_factor(M1PLD, quat1, ProjectionMap(FD2[CFD2[m]], d1, Rd1, P1rep1))^-1 * weight_map(quat1);
                   InsertBlock(~B, mat1, (n-1)*w+1, (m-1)*w+1);
                end if;
             end if;
          end for;
       end for;
 
-   end if; // parallel weight 2
+   end if; 
 
    return B;
 end function;
@@ -1682,15 +1695,19 @@ function DegeneracyMap(M1, M2, p : Big:=false)
       assert IsIdentical(M1`weight_rep, M2`weight_rep); 
    end if;
 
+   // these have the same number of entries because 
+   // the quaternion orders are the same
    HMDF1 := HilbertModularSpaceDirectFactors(M1);
    HMDF2 := HilbertModularSpaceDirectFactors(M2);
 
    if Minimum(p) eq 1 then
+      // trivial degeneracy map
       tp:=AssociativeArray(CartesianProduct([1..#HMDF1],[1..#HMDF1]));
       for l:=1 to #HMDF1 do
          tp[<l,l>]:=[Algebra(M1`QuaternionOrder)!1];
       end for;
    else
+      // nontrivial degeneracy map
       tp:=get_tps(M1,p);
    end if;
 
@@ -1701,25 +1718,33 @@ function DegeneracyMap(M1, M2, p : Big:=false)
    w2 := M2`weight_dimension;
    assert w1 eq w2;
 
+   weight2trivchar := (w1 eq 1) and (NebentypusOrder(M1) eq 1) and (NebentypusOrder(M2) eq 1);
+   // #xx`CFD is the number of orbits in the projective line
+   // of xx which contribute nontrivially to the basis
    nCFD1 := [#xx`CFD : xx in HMDF1];
    nCFD2 := [#xx`CFD : xx in HMDF2];
+   // we restrict to the right ideal classes which contribute
+   // nontrivially to keep the linear algebra efficient
    inds1 := [l : l in [1..#HMDF1] | nCFD1[l] ne 0];
    inds2 := [m : m in [1..#HMDF2] | nCFD2[m] ne 0];
    row := 1; 
    col := 1;
+   // we have a copy of the weight rep for each orbit in each P1 
    D := Matrix(F, &+nCFD1 * w1, &+nCFD2 * w2, []); 
 
    for m in inds2 do
       for l in inds1 do 
          bool, tpml := IsDefined(tp, <m,l>);
          if bool then
-            Dlm := DegeneracyMapBlock(HMDF1[l], HMDF2[m], tpml, sm);
+            Dlm := DegeneracyMapBlock(HMDF1[l], HMDF2[m], tpml, sm : weight2trivchar:=weight2trivchar);
             InsertBlock(~D, Dlm, row, col); 
 //assert Nrows(Dlm) eq nCFD1[l] * w1;
 //assert Ncols(Dlm) eq nCFD2[m] * w2;
          end if;
+         // the contribution from the lth right ideal class
          row +:= nCFD1[l] * w1;
       end for;
+      // the contribution from the mth right ideal class
       col +:= nCFD2[m] * w2;
       row := 1;
    end for;
