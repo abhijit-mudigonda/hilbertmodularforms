@@ -911,7 +911,11 @@ end intrinsic;
 
 intrinsic NebentypusOrder(M::ModFrmHil) -> RngIntElt
   {returns the order of DirichletCharacter(M)}
-  chi := DirichletCharacter(M);
+  return NebentypusOrder(DirichletCharacter(M));
+end intrinsic;
+
+intrinsic NebentypusOrder(chi) -> RngIntElt
+  {returns the order of chi if its a GrpHeckeElt and 1 if it's a RngIntElt}
   // sometimes chi is set to 1 or 0
   if Type(chi) eq RngIntElt then
     return 1;
