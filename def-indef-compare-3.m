@@ -8,38 +8,12 @@ MAX_PRIME := 50;
 F := QuadraticField(5);
 ZF := Integers(F);
 
-// weight [2, 2] space for sanity checking
-
-/*
 k := [2, 2];
-N := Factorization(7*ZF)[1][1];
-qq := N;
+N := ideal<ZF | 40, 16*ZF.2 - 8>;
 H := HeckeCharacterGroup(N, [1, 2]);
-chi := H.0;
-assert Order(chi) eq 1;
-*/
-
-/*
-// weight [3, 3] space with quadratic nebentypus
-
-k := [3, 3];
-N := 6*ZF;
-
-// N := ideal<ZF | 4*ZF.2 - 2>;
-qq := 2*ZF;
-H := HeckeCharacterGroup(N, [1, 2]);
-chi := H.1;
-// assert HeckeCharLabel(chi) eq "-5.0.1_20.1_2u1u1.2u";
-assert Order(chi) eq 2;
-*/
-
-// weight [2, 2] space with cubic nebentypus
-
-k := [2, 2];
-N := 14*ZF;
-H := HeckeCharacterGroup(N, [1, 2]);
-chi := H.1^2; 
-qq := 2*ZF;
+chi := H.1; 
+assert HeckeCharLabel(chi) eq "-5.0.1_320.1_2u0.1.1.1u1.2u";
+qq := Factorization(5*ZF)[1][1];
 
 // COMPUTE USING DEFINITE METHOD
 
@@ -78,8 +52,7 @@ N_indef := N / qq;
 
 // chi_indef := HeckeCharacterGroup(N / qq, [1, 2]).;
 
-chi_indef := HeckeCharacterGroup(N / qq, [1, 2]).1;
-
+chi_indef := Restrict(chi, N_indef, [1,2]);
 
 primes := [pp : pp in PrimesUpTo(MAX_PRIME, F) | pp ne qq];
 for pp in primes do

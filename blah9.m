@@ -11,6 +11,7 @@ assert Order(chi) eq 3;
 Mk := HMFSpace(M, N, k, chi);
 Sk := CuspFormBasis(Mk);
 
+
 /*
 for N in IdealsUpTo(100, F) do
   print Norm(N), IdealOneLine(N);

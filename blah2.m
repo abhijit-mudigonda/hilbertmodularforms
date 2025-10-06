@@ -1,73 +1,37 @@
 load "config.m";
-import !"Geometry/ModFrmHil/precompute.m" : get_rids, support_for_rids;
 
-F := QuadraticField(3);
+import "ModFrmHil/definite.m" : HeckeOperatorDefiniteBig;
+import !"Geometry/ModFrmHil/hecke.m" : restriction;
+
+MAX_PRIME := 50;
+
+F := QuadraticField(2);
 ZF := Integers(F);
 
-B := QuaternionAlgebra(1*ZF, InfinitePlaces(F) : Optimized);
-O := MaximalOrder(B);
+k := [3, 3];
+N := 5*ZF;
 
-print "right ideal classes", #RightIdealClasses(O);
+H := HeckeCharacterGroup(N, [1, 2]);
+chi := H.1;
+assert Order(chi) eq 4;
+print HeckeCharLabel(chi);
+assert HeckeCharLabel(chi) eq "-2.0.1_25.1_4u1u1.2u";
 
-// Import necessary functions for computing right ideal classes
+/*
+B_def := QuaternionAlgebra(1*ZF, InfinitePlaces(F) : Optimized);
+O_def := MaximalOrder(B_def);
 
-// Create a dummy modular forms space to use get_rids
-// We need this because get_rids expects a ModFrmHil object
-M := New(ModFrmHil);
-M`QuaternionOrder := O;
-M`Level := Factorization(2*ZF)[1][1];
+M := HilbertCuspForms(F, N, chi, k);
 
-// Compute right ideal classes and their left orders
-print "Computing right ideal classes...";
-rids := get_rids(M);
-print "Number of right ideal classes:", #rids;
-
-// Extract left orders
-LOs := [I`LeftOrder : I in rids];
-print "Number of left orders:", #LOs;
-
-
-// Compute the ideal d the same way definite.m does
-A := Algebra(O);
-d := M`Level/Discriminant(A);
-print "Discriminant of quaternion algebra:", Discriminant(A);
-print "Level of M:", M`Level;
-print "Using ideal d =", d, "for splitting map (computed as Level/Discriminant)";
-print "Norm of d:", Norm(d);
-
-// Create the splitting map
-print "Creating splitting map...";
-import "ModFrmHil/definite.m" : _ResidueMatrixRing;
-split_map := _ResidueMatrixRing(O, d);
-
-print "\n=== ANALYSIS OF LEFT ORDERS AND THEIR UNIT GROUPS ===\n";
-
-// Iterate through each left order
-for i := 1 to #LOs do
-    LO := LOs[i];
-    print "Left Order", i, "of", #LOs;
-    print "Left Order:", LO;
-    
-    // Compute unit group
-    U, unit_map := UnitGroup(LO);
-    units := [Algebra(LO)! unit_map(s) : s in U];
-    
-    print "Order of unit group:", #U;
-    print "Unit group structure:", U;
-    
-    // Apply splitting map to each unit
-    print "Images of units under splitting map:";
-    for j := 1 to #units do
-        u := units[j];
-        split_u := split_map(u);
-        print "  Unit", j, ":", u;
-        print "  Image:", split_u;
-        print "";
-    end for;
-    
-    print "----------------------------------------";
-    print "";
+def_hecke_mtrxs := AssociativeArray();
+for pp in PrimesUpTo(MAX_PRIME, F) do
+  hecke_mtrx := HeckeOperatorDefiniteBig(M, pp);
+  res_hecke_mtrx := restriction(M, hecke_mtrx);
+  def_hecke_mtrxs[pp] := res_hecke_mtrx;
 end for;
+*/
 
-print "=== ANALYSIS COMPLETE ===";
-
+GRing := GradedRingOfHMFs(F, 400);
+Mk := HMFSpace(GRing, N, k, chi);
+Sk := CuspFormBasis(Mk);
+Sk_hs := HeckeStabilityCuspBasis(Mk : prove:=false, stable_only:=true);
