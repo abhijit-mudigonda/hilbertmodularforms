@@ -123,7 +123,7 @@ intrinsic HeckeStabilityCuspBasis(
         for psi in Elements(H) do
           // TODO abhijitm I'm confused about IsGamma1EisensteinWeight, is it doing
           // anything that IsCompatibleWeight isn't?
-          if IsCompatibleWeight(psi, eis_wt) and IsGamma1EisensteinWeight(psi, 1) then
+          if IsCompatibleWeight(psi, eis_wt) and IsGamma1EisensteinWeight(psi, 1) and Order(psi) eq 2 then
             chi_eis := psi;
             flag := true;
             break;
