@@ -99,9 +99,19 @@ function operator(M, p, op)
       _ := WeightRepresentation(M);
     end if;
 
+    if not assigned M`hecke_matrix_field then
+      M`hecke_matrix_field := hecke_matrix_field(M);
+    end if;
+
     Gamma := FuchsianGroup(QuaternionOrder(M));
     case op:
-      when "Hecke" : Tp_big, p_reps := HeckeMatrix2(Gamma, N, p, Weight(M), DirichletCharacter(M));
+      when "Hecke" : Tp_big, p_reps := HeckeMatrix2(
+                                          Gamma,
+                                          N,
+                                          p,
+                                          Weight(M),
+                                          DirichletCharacter(M) : 
+                                          HeckeMatrixField:=M`hecke_matrix_field);
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
@@ -116,6 +126,9 @@ function operator(M, p, op)
   end if;
 
   if assigned M`hecke_matrix_field then
+    // print "BaseRing(Tp)", BaseRing(Tp);
+    // print "M`hecke_matrix_field", M`hecke_matrix_field;
+    // print IsIsomorphic(BaseRing(Tp), M`hecke_matrix_field);
     bool, Tp := CanChangeRing(Tp, M`hecke_matrix_field);
     error if not bool,
          "The hecke_matrix_field seems to be wrong!\n" * please_report;

@@ -230,7 +230,7 @@ FindGammas := function(Ol, Gamma : Bound := 100);
   return foundgammas, cosets;
 end function;
 
-intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := false) -> AlgMatElt, Any
+intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := false, HeckeMatrixField:=0) -> AlgMatElt, Any
   {Computes the matrix of the Hecke operator T_ell acting on H^1 of the induced module from level N. 
    In the Hecke operator case, also returns the norm ell element lambda used to compute the matrix.
    These are the analogues of  (1 0 \\ 0 ell) in the classical theory, and are used if the 
@@ -544,7 +544,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := f
       M2ell, phiell, mFell := pMatrixRing(leftOrder, ell);
       _, iotaell := ResidueMatrixRing(leftOrder, ell);
     end if;
-    Mblock, lambda := HeckeMatrix1(O, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := UseAtkinLehner);
+    Mblock, lambda := HeckeMatrix1(O, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL:=UseAtkinLehner, HeckeMatrixField:=HeckeMatrixField);
     empty_lambda_nms := (UseAtkinLehner or inNormSupport or (Mblock cmpeq []));
     if not empty_lambda_nms then
       Append(~lambda_nms, Norm(lambda));
@@ -576,7 +576,7 @@ intrinsic HeckeMatrix2(Gamma::GrpPSL2, N, ell, weight, chi : UseAtkinLehner := f
   end if;
 end intrinsic;
 
-HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := false);
+HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight, chi : ellAL := false, HeckeMatrixField:=0);
   // Initialization.
   Gamma_mother := O_mother`FuchsianGroup;
   assert O_mother`RightIdealClasses[ridsbasis][4];
@@ -617,12 +617,12 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
   IsParallelWeightTwo := is_par_wt_2(weight);
   IsTrivialCoefficientModule := IsLevelOne and IsParallelWeightTwo;
 
-  Gamma_datum := cIdealDatum(Gamma, N : chi:=chi);
+  Gamma_datum := cIdealDatum(Gamma, N : chi:=chi, HeckeMatrixField:=HeckeMatrixField);
   if O eq Op then
     // this happens if the narrow class number is 1
     Gammap_datum := Gamma_datum;
   else
-    Gammap_datum := cIdealDatum(Gammap, N : chi:=chi);
+    Gammap_datum := cIdealDatum(Gammap, N : chi:=chi, HeckeMatrixField:=HeckeMatrixField);
   end if;
   cosets := Gamma_datum`CosetReps;
   cosetsp := Gammap_datum`CosetReps;
@@ -748,7 +748,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
           y := Op!(alphas[j]*liftsik*alphas[c]^(-1));
           y, _ := CompleteRelationFromUnit(Gammap_datum, y, weight : IsTrivialCoefficientModule:=false);
           y := ColumnSubmatrix(y, 1, W_dim);
-          y := y * matrix_of_action(alphas[c], weight, Gammap_datum);
+          y := y * matrix_of_action(alphas[c], weight, Gammap_datum : hecke_matrix_field:=HeckeMatrixField);
           Append(~Gk, y);
         end for;
 
@@ -835,7 +835,7 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
       Zp := [matrix_of_action(alpha, weight, Gamma_datum) : alpha in alphas];
     end if;
   else
-    Zp := [matrix_of_induced_action(alpha, weight, Gamma_datum) : alpha in alphas];
+  Zp := [matrix_of_induced_action(alpha, weight, Gamma_datum : hecke_matrix_field:=HeckeMatrixField) : alpha in alphas];
   end if;
 
   Y_Op := [];
