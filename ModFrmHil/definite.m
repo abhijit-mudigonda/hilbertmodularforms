@@ -488,18 +488,25 @@ function twist_factor(PLD, gamma, x : F:=0)
     assert x in PLD`P1List;
     gamma_mod_N := PLD`splitting_map(gamma);
 
-    // we shouldn't be computing the twist factor on gamma
-    // which aren't invertible mod N
+    // print "gamma_mod_N", gamma_mod_N;
 
     det_gamma := Determinant(gamma_mod_N);
+    // print "det_gamma integral", det_gamma in ZF;
+    // print "det_gamma", det_gamma, Parent(det_gamma);
+    // print "is coprime", IsCoprime(ideal<ZF | det_gamma>, N);
 
     coset_rep_x_mod_N := PLD`CosetRepDict[x];
 
     mat := gamma_mod_N * coset_rep_x_mod_N;
     // do it in this way for type coercion reasons
     mat_second_col := Matrix(ZF, [[mat[1][2]], [mat[2][2]]]);
-    _, y := PLD`P1Rep(mat_second_col, false, false);
+    // print "mat_second_col", mat_second_col, mat[1][2] in N, mat[2][2] in N, Norm(ideal<ZF | mat[1][2], mat[2][2]>);
+    // print mat[1][1] in N, mat[1][2] in N, mat[2][1] in N, mat[2][2] in N;
+    // pp := 2*ZF;
+    // print mat[1][1] in pp, mat[1][2] in pp, mat[2][1] in pp, mat[2][2] in pp;
 
+    _, y := PLD`P1Rep(mat_second_col, false, false);
+    
     // a lower triangular (mod N) matrix
     coset_rep_y_mod_N := PLD`CosetRepDict[y];
     det_coset_rep_y := Determinant(coset_rep_y_mod_N);
@@ -1306,6 +1313,7 @@ end function;
 
 function AtkinLehnerDefiniteBig(M, p)
 
+   // print "!!!!!!!!!!!!!!!! ATKIN LEHNER !!!!!!!!!!!!!!!!!!!!", Norm(p), IdealOneLine(p);
    assert not assigned M`Ambient; // M is an ambient
 
    if not assigned M`ALBig then
@@ -1451,7 +1459,7 @@ function AtkinLehnerDefiniteBig(M, p)
                units1     := HMDF[l]`max_order_units; 
                weight_map := HMDF[l]`weight_rep; 
 
-               quat1 := units1[u] ^ -1 * tp_elt[l,k];
+               quat1 := units1[u]^-1 * tp_elt[l,k];
                // TODO abhijitm double check twist factor
                InsertBlock(~Wp, twist_factor(PLDl, quat1, FDm[HMDF[m]`CFD[mm]])^-1 * weight_map(quat1), r, c);
             end if;

@@ -161,9 +161,6 @@ function DegeneracyMapDomain(M, d)
       N := Level(M);
       _, m_inf := Modulus(chi);
       // ensure that the conductor of chi divides d
-      print "N", IdealOneLine(N);
-      print "d", IdealOneLine(d);
-      print "Conductor(chi)", IdealOneLine(Conductor(chi));
       assert d subset Conductor(chi);
       new_chi := Restrict(chi, d, m_inf);
    end if;
