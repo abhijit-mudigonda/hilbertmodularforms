@@ -39,6 +39,7 @@ k := [2, 2];
 N := 14*ZF;
 H := HeckeCharacterGroup(N, [1, 2]);
 chi := H.1^2; 
+assert Order(chi) eq 3;
 qq := 2*ZF;
 
 // COMPUTE USING DEFINITE METHOD
