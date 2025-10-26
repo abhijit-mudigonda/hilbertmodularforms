@@ -1001,7 +1001,7 @@ end function;
 
 // TO DO: sparse
 
-function HeckeOperatorDefiniteBig(M, p : Columns:="all")
+function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
 
   // print "HeckeOperatorDefiniteBig", IdealOneLine(p);
   assert not assigned M`Ambient; // M is an ambient
@@ -1151,6 +1151,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
         for l in inds do 
           // I'm guessing it's undefined only if tpml is empty.
           bool, tpml := IsDefined(tp, <m,l>);
+          print "Norm p", Norm(p), "size of tpml", #tpml;
 
           if bool then
             // this isn't actually used if we are in paritious weight
@@ -1230,6 +1231,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
               // to the respective big blocks in basis_matrix. 
               Tplm := Matrix(F, wd*#CFDl, wd*#CFDm, []);
               
+              print "norm prime", Norm(p), "number of tpml", #tpml;
               for ll := 1 to #tpml do
                 // tpml[ll] is an element of O, and mat is the element mod N
                 mat := tpml[ll] @ sm;
@@ -1239,6 +1241,9 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all")
                   // so applying mat to it makes sense
                   u := mat * FDm[CFDm[mm]];
                   bool, u0 := P1rep(u, checkP1, false);
+                  if not bool then
+                    print "not bool!";
+                  end if;
                   if bool then
                     // this lookup is in the P1 associated to ll!
                     // It finds the orbit in ll's P1 associated to 
@@ -1785,8 +1790,7 @@ end function;
 // Basis of a newspace (called only by BasisMatrixDefinite)
 
 procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
-   print "**************** ComputeBasisMatrixOfNewSubspaceDefinite_general **************";
-   assert IsDefinite(M); 
+  assert IsDefinite(M); 
    MA := M`Ambient; // must be assigned with QuaternionOrder (unless NewLevel = Level)
    A,B:= BasisMatrixDefinite(MA);
 
@@ -1811,7 +1815,6 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       valid_primes := Factorization(N / Conductor(DirichletCharacter(M)));
    end if;
 
-   print "valid_primes", valid_primes;
    V := VectorSpace(BaseRing(A), Nrows(A)); 
    W := sub<V|>;
    for m := 1 to #valid_primes do
@@ -1833,7 +1836,6 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       vprintf ModFrmHil: "Degeneracy maps between dimensions %o and %o: ", Dimension(MA), Dimension(N1);
       vtime ModFrmHil:
       D1 := DegeneracyMap(N1, MA, 1*O);
-      print "------ D1 rows", Nrows(D1), Rank(D1);
 
       if eP eq 1 then
          vtime ModFrmHil:
@@ -1846,7 +1848,6 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       end if;
 
       D2 := eP eq 1 select D2old else D2new;
-      print "------ D2 rows", Nrows(D2), Rank(D2);
       old_space_mat := VerticalJoin(D1, D2);
 
       // checks
