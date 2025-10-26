@@ -53,7 +53,8 @@ for N in ideals do
         end if;
       end if;
     end for;
-    print Norm(N), IdealOneLine(N), HeckeCharLabel(chi), chi, flag, flag_quad;
+    // print Norm(N), IdealOneLine(N), HeckeCharLabel(chi), chi, flag, flag_quad;
+    print HeckeCharLabel(chi);
   end for;
 end for;
 

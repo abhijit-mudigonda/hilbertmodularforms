@@ -4,7 +4,7 @@ import !"Geometry/ModFrmHil/hecke.m" : restriction;
 
 verbose := false;
 
-MAX_N_NORM := 200;
+MAX_N_NORM := 300;
 
 function prime_exactly_div_level(I)
   facts := Factorization(I);
@@ -114,7 +114,7 @@ ks := [[2, 2], [3, 3], [2, 4], [2, 3]];
 // TODO abhijitm get things to work with nebentypus order bigger than 2
 neb_orders := [1, 2];
 
-test(QuadraticField(5), [2, 3], 2);
+test(QuadraticField(5), [3, 3], 2);
 
 /*
 for F in Fs do

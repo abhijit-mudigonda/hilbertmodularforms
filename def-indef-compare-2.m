@@ -5,31 +5,21 @@ import !"Geometry/ModFrmHil/hecke.m" : restriction;
 
 MAX_PRIME := 50;
 
-F := QuadraticField(2);
+F := QuadraticField(5);
 ZF := Integers(F);
 
 // weight [2, 2] space for sanity checking
 
-/*
-k := [2, 2];
-N := Factorization(7*ZF)[1][1];
+k := [4, 4];
+N := 6*ZF;
 qq := N;
 H := HeckeCharacterGroup(N, [1, 2]);
 chi := H.0;
 assert Order(chi) eq 1;
-*/
 
-// weight [3, 3] space with quadratic nebentypus
-
-k := [2,3];
-N := ideal<ZF | 28, 2*ZF.2 - 8>;
-H := HeckeCharacterGroup(N, [1,2]);
-chi := H.2;
-assert Order(chi) eq 2;
 
 // COMPUTE USING DEFINITE METHOD
 
-/*
 print "-------- DEFINITE -----------";
 
 B_def := QuaternionAlgebra(1*ZF, InfinitePlaces(F) : Optimized);
@@ -44,9 +34,8 @@ for pp in PrimesUpTo(MAX_PRIME, F) do
   hecke_mtrx := HeckeOperatorDefiniteBig(M, pp);
   res_hecke_mtrx := restriction(M, hecke_mtrx);
   def_hecke_mtrxs[pp] := res_hecke_mtrx;
-  print <Norm(pp), IdealOneLine(pp), CharacteristicPolynomial(res_hecke_mtrx)>;
+  print <Norm(pp), CharacteristicPolynomial(res_hecke_mtrx)>;
 end for;
-*/
 
 // COMPUTE USING INDEFINITE METHOD (away from qq = 2*ZF)
 
