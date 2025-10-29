@@ -1,7 +1,7 @@
 load "config.m";
 
 SetVerbose("ModFrmHil", 3);
-PREC := 888;
+PREC := 500;
 F := QuadraticField(2);
 ZF := Integers(F);
 
@@ -27,8 +27,11 @@ assert #Intersection(Sk_squared, S24) eq 3;
 eigs := Eigenbasis(Mk, Sk : P:=12, coprime_only:=false);
 dinv_F := IdealToRep(M, 1*ZF);
 f := eigs[1];
+K := CoefficientRing(f);
 f := f / Coefficient(f, 1*ZF, dinv_F);
+
 
 [#LinearDependence([f, HeckeOperator(f, pp)]) : pp in PrimesUpTo(20, F)];
 
 #Intersection([f^2], S24);
+

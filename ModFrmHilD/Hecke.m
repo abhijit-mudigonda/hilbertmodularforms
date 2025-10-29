@@ -108,7 +108,11 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
 
   primes := (coprime_only) select PrimesUpTo(P, F : coprime_to:=N) else PrimesUpTo(P, F);
   for pp in primes do
-    Append(~hecke_matrices, HeckeMatrix(basis, pp : use_coeff:=use_coeff));
+    hm := HeckeMatrix(basis, pp : use_coeff:=use_coeff);
+    if not IsZero(hm) then
+      print "nonzero hm", IdealOneLine(pp);
+      Append(~hecke_matrices, HeckeMatrix(basis, pp : use_coeff:=use_coeff));
+    end if;
   end for;
 
   // B stores a matrix such that B * M * B^-1 is
@@ -121,7 +125,7 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
   Binv := B^-1;
 
   // coefficient ring of eigenforms
-  L := Parent(B[1][1]);
+  L := BaseRing(B);
   if F eq Rationals() then
     K := L;
   elif L eq Rationals() then
@@ -135,7 +139,6 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
   end if;
    
   basis := [ChangeCoefficientRing(f, K) : f in basis];
-  K := CoefficientRing(basis[1]);
   eigs := [];
 
   // the columns of P should be the coefficients
@@ -143,6 +146,7 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
   // rise to eigenvectors
   // TODO is there really no way to get the columns of an AlgMatElt? 
   for v in Rows(Transpose(Binv)) do
+    print "hoi";
     eig := &+[StrongCoerce(K, v[i]) * basis[i] : i in [1 .. #basis]];
     if not use_coeff then
       eig := DivideByFirstNonzeroIdlCoeff(eig);
