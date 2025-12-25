@@ -1245,17 +1245,17 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
                     print "not bool!";
                   end if;
                   if bool then
-                    // this lookup is in the P1 associated to ll!
-                    // It finds the orbit in ll's P1 associated to 
-                    // tpml[ll] * FDM[CFDm[mm]]
+                    // this lookup is in the P1 associated to l!
+                    // It finds the orbit in l's P1 associated to 
+                    // mat(tpml[ll]) * FDM[CFDm[mm]]
                     elt_data := lookup[u0]; 
                     // elt_data[1] is an index in the fundamental domain of the 
-                    // P1 associated to ll. 
+                    // P1 associated to l. 
                     n := Index(CFDl, elt_data[1]);
-                    // If n is 0 then there's no contribution from this orbit
+                    // If n is 0 then u0 corresponds to an orbit in l's P1 which does not 
+                    // have any quaternionic modular forms.
                     if n ne 0 then
-                      // elt_data[2] stores the 
-                      // anyways, units1[elt_data[2]]^-1 is the unit which takes
+                      // units1[elt_data[2]]^-1 is the unit which takes
                       // the orbit rep of u0 to u0. 
                       quat1 := units1[elt_data[2]]^-1 * tpml[ll]; 
                       X := ExtractBlock(Tplm, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
