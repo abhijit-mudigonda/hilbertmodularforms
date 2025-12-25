@@ -1313,7 +1313,7 @@ end function;
 
 function AtkinLehnerDefiniteBig(M, p)
 
-   // print "!!!!!!!!!!!!!!!! ATKIN LEHNER !!!!!!!!!!!!!!!!!!!!", Norm(p), IdealOneLine(p);
+   print "!!!!!!!!!!!!!!!! ATKIN LEHNER !!!!!!!!!!!!!!!!!!!!", Norm(p), IdealOneLine(p);
    assert not assigned M`Ambient; // M is an ambient
 
    if not assigned M`ALBig then
@@ -1785,6 +1785,7 @@ end function;
 // Basis of a newspace (called only by BasisMatrixDefinite)
 
 procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
+   print "**************** ComputeBasisMatrixOfNewSubspaceDefinite_general **************";
    assert IsDefinite(M); 
    MA := M`Ambient; // must be assigned with QuaternionOrder (unless NewLevel = Level)
    A,B:= BasisMatrixDefinite(MA);
@@ -1809,6 +1810,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
         | (N / fact_tup[1]^fact_tup[2]) subset Conductor(DirichletCharacter(M))];
    end if;
 
+   print "valid_primes", valid_primes;
    V := VectorSpace(BaseRing(A), Nrows(A)); 
    W := sub<V|>;
    for m := 1 to #valid_primes do
@@ -1830,6 +1832,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       vprintf ModFrmHil: "Degeneracy maps between dimensions %o and %o: ", Dimension(MA), Dimension(N1);
       vtime ModFrmHil:
       D1 := DegeneracyMap(N1, MA, 1*O);
+      print "------ D1 rows", Nrows(D1), Rank(D1);
 
       if eP eq 1 then
          vtime ModFrmHil:
@@ -1842,6 +1845,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       end if;
 
       D2 := eP eq 1 select D2old else D2new;
+      print "------ D2 rows", Nrows(D2), Rank(D2);
       old_space_mat := VerticalJoin(D1, D2);
 
       // checks
