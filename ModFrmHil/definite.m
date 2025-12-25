@@ -1804,10 +1804,11 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    if (NebentypusOrder(M) eq 1) then
       valid_primes := [fact_tup : fact_tup in Factorization(N)];
    else
-      // a prime p is fair game if the nebentypus still makes sense
-      // on N / p, i.e. if the conductor of chi divides N / p. 
-      valid_primes := [fact_tup : fact_tup in Factorization(N)
-        | (N / fact_tup[1]^fact_tup[2]) subset Conductor(DirichletCharacter(M))];
+      // we can only go as far as the conductor of the nebentypus
+      //
+      // TODO abhijitm once DirichletCharacter is always a character, 
+      // we won't need the if/else
+      valid_primes := Factorization(N / Conductor(DirichletCharacter(M)));
    end if;
 
    print "valid_primes", valid_primes;
