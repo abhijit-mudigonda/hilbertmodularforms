@@ -184,7 +184,7 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
           nnddinv := ZF !! nnddinv;
           bool, v := IsDefined(coeffs, ZF !! nn*ddinv);
         else
-          v := 0;
+          v := ZeroMatrix(CoefficientRing(Tzeta), Nrows(Tzeta));
         end if;
         for i in [1..Nrows(Tzeta)] do
           // Let f_j be the jth Galois conjugate of f and T a generator
