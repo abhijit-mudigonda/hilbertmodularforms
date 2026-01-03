@@ -1717,7 +1717,7 @@ end function;
 // for some prime q, and either p = q or p = (1)
 // Only valid if M1 was created as a DegeneracyMapDomain of M2.
 
-function DegeneracyMap(M1, M2, p : Big:=false)
+function DegeneracyMap(M1, M2, p : Big:=false, EisensteinAllowed:=false)
 
    assert IsPrime(p) or Norm(p) eq 1;
    assert GCD(p*(M1`Level), M2`Level) eq p*(M1`Level);
@@ -1783,10 +1783,10 @@ function DegeneracyMap(M1, M2, p : Big:=false)
 
    // Two differences here
    if Big then
-      M1bm := BasisMatrixDefinite(M1 : EisensteinAllowed);
+      M1bm := BasisMatrixDefinite(M1 : EisensteinAllowed:=EisensteinAllowed);
       return M1bm * D;
    else
-      M1bm := BasisMatrixDefinite(M1);
+      M1bm := BasisMatrixDefinite(M1 : EisensteinAllowed:=EisensteinAllowed);
       _, M2bmi := BasisMatrixDefinite(M2);
       return M1`basis_matrix * D * M2bmi;
    end if;
