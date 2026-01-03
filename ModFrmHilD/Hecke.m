@@ -146,7 +146,6 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
   // rise to eigenvectors
   // TODO is there really no way to get the columns of an AlgMatElt? 
   for v in Rows(Transpose(Binv)) do
-    print "hoi";
     eig := &+[StrongCoerce(K, v[i]) * basis[i] : i in [1 .. #basis]];
     if not use_coeff then
       eig := DivideByFirstNonzeroIdlCoeff(eig);
