@@ -206,14 +206,22 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
             CoeffsArray[i][bb][nu] := R!0;
           end if;
 
+          // Handle the case where v might be a scalar (shouldn't happen with the fix in CuspFormFromEigs.m)
+          if Type(v) ne AlgMatElt then
+            // Convert scalar to diagonal matrix
+            v := ScalarMatrix(Nrows(Tzeta), v);
+          end if;
+          
+          // Optimization: Trace(A*B) = sum_i (row_i(A) * col_i(B))
+          // This avoids computing the full matrix product
+          trace_val := &+[&+[Tzeta_powers[i][j,k] * v[k,j] : k in [1..Ncols(v)]] : j in [1..Nrows(Tzeta_powers[i])]];
+          
           if IsParitious(Weight(Mk)) then
-            a_nn := Trace(Tzeta_powers[i]*v);
-            CoeffsArray[i][bb][nu] := R!(bool select IdlCoeffToEltCoeff(a_nn, nu, k, R) else 0);
+            CoeffsArray[i][bb][nu] := R!(bool select IdlCoeffToEltCoeff(trace_val, nu, k, R) else 0);
           else
             // TODO abhijitm this is only tested in the case of N = NS, dd = ddinv = 1,
             // so I think in this setting bool is always true
-            a_nup := Trace(Tzeta_powers[i]*v);
-            a_nu := coeff_from_ext_mult_fourier(Mk, a_nup, mfh_reps[nn], nn);
+            a_nu := coeff_from_ext_mult_fourier(Mk, trace_val, mfh_reps[nn], nn);
             CoeffsArray[i][bb][nu] := R!(bool select a_nu else 0);
           end if;
         end for;
