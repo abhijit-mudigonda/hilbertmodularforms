@@ -40,6 +40,7 @@ function operator(M, p, op)
   if Dimension(M : UseFormula:=false) eq 0 then // gets cached dimension or computes the space
 
     Tp := ZeroMatrix(Integers(), 0, 0);
+    p_reps := []; // default empty list for zero-dimensional spaces
 
   elif assigned M`basis_matrix_wrt_ambient then
 
@@ -71,7 +72,8 @@ function operator(M, p, op)
 
     bm := M`basis_matrix_wrt_ambient;
     bmi := M`basis_matrix_wrt_ambient_inv;
-    return bm * Tp * bmi;
+    Tp := bm * Tp * bmi;
+    p_reps := []; // Bianchi case doesn't use p_reps
 
   elif IsDefinite(M) then
 
@@ -79,9 +81,13 @@ function operator(M, p, op)
     case op:
       when "Hecke"   : Tp_big, p_reps := HeckeOperatorDefiniteBig(MA, p);
       when "AL"      : Tp_big := AtkinLehnerDefiniteBig(MA, p);
+                       p_reps := []; // AL doesn't use p_reps
       when "DegDown1": Tp_big := DegeneracyDown1DefiniteBig(MA, p);
+                       p_reps := []; // DegDown1 doesn't use p_reps
       when "DegDownp": Tp_big := DegeneracyDownpDefiniteBig(MA, p);
+                       p_reps := []; // DegDownp doesn't use p_reps
       when "Diamond" : Tp_big := DiamondOperatorDefiniteBig(MA, p);
+                       p_reps := []; // Diamond doesn't use p_reps
     end case;
     Tp := restriction(M, Tp_big);
 
@@ -111,6 +117,10 @@ function operator(M, p, op)
                                           Weight(M),
                                           DirichletCharacter(M) : 
                                           HeckeMatrixField:=M`hecke_matrix_field);
+                       // Normalize p_reps to always be a list
+                       if Type(p_reps) ne SeqEnum then
+                         p_reps := [p_reps];
+                       end if;
       when "AL"    : Tp_big := HeckeMatrix2(
                                   Gamma,
                                   N,
@@ -118,6 +128,7 @@ function operator(M, p, op)
                                   Weight(M),
                                   DirichletCharacter(M) : 
                                   UseAtkinLehner);
+                       p_reps := []; // AL doesn't use p_reps
     end case;
     bm, bmi := basis_matrix(M);
     Tp := restriction(M, Tp_big);
