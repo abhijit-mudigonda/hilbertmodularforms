@@ -255,7 +255,6 @@ function matrix_of_induced_action(b, k, X : hecke_matrix_field:=0)
   elif is_par_wt_2(k) and IsTrivial(X`Character) then
     R := Integers();
   else
-    print "!!!!!!!!!!!!!!!!!!!!!!!! AAAAAAAAHHHHHHHHHHHHHHHHHHHHHHH !!!!!!!!!!!!!!!!!!!!!";
     _, K, _ := Splittings(Parent(b));
     R := Compositum(K, CyclotomicField(Order(X`Character)));
   end if;
