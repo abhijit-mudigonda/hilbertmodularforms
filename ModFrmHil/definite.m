@@ -1473,7 +1473,7 @@ function AtkinLehnerDefiniteBig(M, p)
 
                quat1 := units1[u]^-1 * tp_elt[l,k];
                // TODO abhijitm double check twist factor
-               InsertBlock(~Wp, twist_factor(PLDl, quat1, FDm[HMDF[m]`CFD[mm]])^-1 * weight_map(quat1), r, c);
+               InsertBlock(~Wp, weight_map(quat1), r, c);
             end if;
 
          end if;
@@ -1701,7 +1701,7 @@ function DegeneracyMapBlock(M1, M2, Tp, sm : weight2trivchar:=false)
                if n ne 0 then 
                   quat1 := units1[elt_data[2]]^-1*Tp[l]; 
                   mat1 := ExtractBlock(B, (n-1)*w+1, (m-1)*w+1, w, w);
-                  mat1 +:= twist_factor(M1PLD, quat1, ProjectionMap(FD2[CFD2[m]], d1, Rd1, P1rep1))^-1 * weight_map(quat1);
+                  mat1 +:= weight_map(quat1);
                   InsertBlock(~B, mat1, (n-1)*w+1, (m-1)*w+1);
                end if;
             end if;
