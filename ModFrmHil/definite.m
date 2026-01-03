@@ -1151,7 +1151,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
         for l in inds do 
           // I'm guessing it's undefined only if tpml is empty.
           bool, tpml := IsDefined(tp, <m,l>);
-          print "Norm p", Norm(p), "size of tpml", #tpml;
+          // print "Norm p", Norm(p), "size of tpml", #tpml;
 
           if bool then
             // this isn't actually used if we are in paritious weight
@@ -1231,7 +1231,8 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
               // to the respective big blocks in basis_matrix. 
               Tplm := Matrix(F, wd*#CFDl, wd*#CFDm, []);
               
-              print "norm prime", Norm(p), "number of tpml", #tpml;
+              // print "norm prime", Norm(p), "number of tpml", #tpml;
+              // print "#CFDm", #CFDm;
               for ll := 1 to #tpml do
                 // tpml[ll] is an element of O, and mat is the element mod N
                 mat := tpml[ll] @ sm;
@@ -1241,9 +1242,15 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
                   // so applying mat to it makes sense
                   u := mat * FDm[CFDm[mm]];
                   bool, u0 := P1rep(u, checkP1, false);
-                  if not bool then
-                    print "not bool!";
-                  end if;
+                  // not totally sure why yet (TODO!) but when p | N, for
+                  // each mm there will be a unique ll such that not bool,
+                  // at least when #(Cls O) = 1. Importantly, I guess this 
+                  // means that unlike the level 1 story (or the story where
+                  // we don't do this projective line stuff), it's not as simple
+                  // as omitting a single element in tpml. 
+                  // if not bool then
+                    // print ll, mm, "not bool!";
+                  // end if;
                   if bool then
                     // this lookup is in the P1 associated to l!
                     // It finds the orbit in l's P1 associated to 
