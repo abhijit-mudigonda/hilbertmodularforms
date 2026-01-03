@@ -1119,7 +1119,8 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
                      #columns gt 1 select "" else " (#"*Sprint(columns[1])*")", 
                      Norm(p);
   vtime ModFrmHil:
-
+  // dummy value, in case it doesn't get set later
+  lambda := 1;
   if easy then
 
     for j in Bcolumns, i in [1..h] do 
@@ -1141,8 +1142,6 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
     row := 0; 
     col := 0;
 
-    // dummy value, in case it doesn't get set later
-    lambda := 1;
     for m in inds do 
       // When not parallel weight 2 trivial nebentypus,
       // Bcolumns is [1 .. h], where h is the class number 
@@ -1292,7 +1291,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
   end if;
 
   // new columns were computed, so renew the cache
-  M`HeckeBig[p] := <SparseMatrix(Tp), lambda>;
+  M`HeckeBig[p] := <SparseMatrix(Tp), [lambda]>;
   M`HeckeBigColumns[p] := Sort(old_cols cat columns);
 //"Now got columns",  M`HeckeBigColumns[p]; M`HeckeBig[p];
 
