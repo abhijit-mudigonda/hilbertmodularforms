@@ -144,9 +144,9 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
   ZF := Integers(Mk);
 
   if IsParitious(Weight(Mk)) then
-    ExtendMultiplicatively(~coeffs, N, k, chiH, primes, ideals : factorization:=func<n|Factorization(M, n)>);
+    ExtendMultiplicatively(~coeffs, Mk);
   else 
-    ExtendMultiplicativelyFourier(~coeffs, ~mfh_reps, Mk);
+    ExtendMultiplicatively(~coeffs, ~mfh_reps, Mk);
   end if;
 
   Tzeta_powers := [Tzeta^i : i in [0..Nrows(Tzeta) - 1]];
