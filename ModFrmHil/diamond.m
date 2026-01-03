@@ -135,11 +135,15 @@ function operator(M, p, op)
 
   end if;
 
-  // TODO abhijitm hack to suppress error, remove
-  if assigned M`hecke_matrix_field and is_paritious(Weight(M)) then
-    bool, Tp := CanChangeRing(Tp, M`hecke_matrix_field);
-    error if not bool,
-         "The hecke_matrix_field seems to be wrong!\n" * please_report;
+  // Coerce Tp to the correct field if needed
+  // For subspaces, Tp comes from the ambient and should already be over the right field
+  // Only coerce if M`hecke_matrix_field is assigned and is different from Tp's base ring
+  if assigned M`hecke_matrix_field and is_paritious(Weight(M)) and BaseRing(Tp) cmpne M`hecke_matrix_field then
+    bool, Tp_coerced := CanChangeRing(Tp, M`hecke_matrix_field);
+    if bool then
+      Tp := Tp_coerced;
+    end if;
+    // If coercion fails, Tp stays in its current ring (which should be compatible)
   end if;
 
   if debug then
