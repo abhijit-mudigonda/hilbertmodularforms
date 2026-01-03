@@ -7,10 +7,10 @@ procedure ExtendMultiplicativelyHelper(~coeffs, ~mfh_reps, M, N, k, chi, Fourier
   ZF := Order(N);
   F := NumberField(ZF);
   
-  // Determine the type of coefficients by checking an existing prime coefficient
+  // Determine the type of coefficients by checking an existing coefficient
   // When called from Newforms.m with GaloisDescent, coefficients are always matrices (Hecke operators)
   // When called from CuspEigenformFromCoeffsAtPrimes, coefficients are scalars (eigenvalues)
-  is_matrix_mode := exists(pp){pp : pp in prime_ideals | IsDefined(coeffs, pp) and Type(coeffs[pp]) eq AlgMatElt};
+  is_matrix_mode := exists(nn){nn : nn in Keys(coeffs) | Type(coeffs[nn]) eq AlgMatElt};
   
   if is_matrix_mode then
     // Matrix mode: Get dimensions from an existing coefficient
