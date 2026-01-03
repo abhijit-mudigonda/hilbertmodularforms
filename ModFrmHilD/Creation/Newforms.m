@@ -149,6 +149,8 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
     ExtendMultiplicatively(~coeffs, ~mfh_reps, Mk);
   end if;
 
+  vprintf HilbertModularForms: "Building coefficient arrays for basis elements...\n";
+
   Tzeta_powers := [Tzeta^i : i in [0..Nrows(Tzeta) - 1]];
 
   // the coefficient ring of the coefficients
@@ -169,6 +171,9 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
     ddinv := dd^-1;
     // coefficients by bb
     CoeffsArray := [AssociativeArray() : _ in [1..Nrows(Tzeta)]];
+    
+    vprintf HilbertModularForms: "  Processing divisor %o (of %o)...\n", dd, #divisors;
+    
     for bb in NarrowClassGroupReps(M) do
       for i in [1..Nrows(Tzeta)] do
         CoeffsArray[i][bb] := AssociativeArray();
