@@ -48,7 +48,7 @@ function hecke_matrix_field(M)
       // TODO abhijitm I'm not entirely clear on why we don't
       // set M`hecke_matrix_field here. 
       H := TopAmbient(M)`weight_base_field;
-      if not (NebentypusOrder(M) eq 1) then
+      if not (Order(DirichletCharacter(M)) eq 1) then
         // nontrivial character
         chi := DirichletCharacter(M);
         H := get_compositum_field(H, chi);
@@ -102,7 +102,7 @@ function minimal_hecke_matrix_field(M)
     H := minimal_hecke_matrix_field(M`Ambient);
   elif IsParallelWeight(M) then
     K := hecke_matrix_field(M);
-    if NebentypusOrder(M) le 2 then
+    if Order(DirichletCharacter(M)) le 2 then
       H := Rationals();
     else
       H := CyclotomicField(Order(DirichletCharacter(M)));

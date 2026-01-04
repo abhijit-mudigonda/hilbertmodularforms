@@ -291,7 +291,7 @@ that are irreducible as Hecke modules, and returns this list of new spaces }
 
     vprintf ModFrmHil: "Characteristic polynomial of Hecke algebra generator: ";
     vtime ModFrmHil:
-    if K cmpeq Rationals() or not (IsParallelWeight(M) and NebentypusOrder(M) eq 2) or IsFinite(K) then
+    if K cmpeq Rationals() or not (IsParallelWeight(M) and Order(DirichletCharacter(M)) eq 2) or IsFinite(K) then
       chi := CharacteristicPolynomial(t);
     else
       // parallel weight ==> poly is over Z

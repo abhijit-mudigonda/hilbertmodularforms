@@ -192,7 +192,7 @@ function basis_matrix(M)
         if basis_is_honest(MA) then
             // Check if inner product is implemented before trying to use it
             bool, w := IsParallelWeight(MA);
-            bool and:= (NebentypusOrder(MA) eq 1);
+            bool and:= (Order(DirichletCharacter(MA)) eq 1);
             if bool and w eq 2 then
                 try 
                     IP := InnerProductMatrix(MA);

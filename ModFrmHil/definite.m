@@ -141,12 +141,12 @@ function get_compositum_field(wt_base_field, chi)
    *
    * Input:
    *   wt_base_field - The base field for the weight representation
-   *   chi - The nebentypus character (0 for trivial, or a GrpDrchNFElt)
+   *   chi - The nebentypus character (GrpHeckeElt)
    *
    * Output:
    *   The compositum field over which quaternionic modular forms should be defined
    */
-  if Type(chi) eq RngIntElt or (Type(chi) eq GrpHeckeElt and IsTrivial(chi)) then
+  if IsTrivial(chi) then
     // Trivial nebentypus case - just use the weight base field
     return wt_base_field;
   else
@@ -441,8 +441,8 @@ function ProjectiveLineOrbits(P1, P1rep, d, unit_map, units, split_map : DoStabs
   // "Dirichlet part" (its restriction to the ramified primes)
   // as well as matrices in GL2(ZF/N) representing the 
   // elements of P1 which get used later.
-  if chi cmpne 0 then
-    assert Type(chi) eq GrpHeckeElt;
+  assert Type(chi) eq GrpHeckeElt;
+  if not IsTrivial(chi) then
     psi := FiniteModulusCharFromHeckeChar(chi);
     CosetRepDict := coset_rep_dict(P1, P1rep, d, quot);
   else
@@ -673,7 +673,7 @@ function HilbertModularSpaceDirectFactors(M)
     LOs := [I`LeftOrder: I in get_rids(M)]; 
 
     // parallel weight 2 and trivial nebentypus
-    if Seqset(Weight(M)) eq {2} and (NebentypusOrder(M) eq 1) then
+    if Seqset(Weight(M)) eq {2} and (Order(DirichletCharacter(M)) eq 1) then
 
       HMDFs := [];
       Q := Rationals();
@@ -688,7 +688,7 @@ function HilbertModularSpaceDirectFactors(M)
         U, mU := UnitGroup(LO); 
         units := [A| s @ mU : s in U];
 
-        PLD := ProjectiveLineOrbits(P1, P1rep, d, mU, units, split_map : DoStabs:=false);
+        PLD := ProjectiveLineOrbits(P1, P1rep, d, mU, units, split_map : DoStabs:=false, chi:=DirichletCharacter(M));
 
         // number of orbits is the dimension
         dim := #PLD`FD;
@@ -717,10 +717,7 @@ function HilbertModularSpaceDirectFactors(M)
       wd := M`weight_dimension;
       wF := M`weight_base_field;
  
-      // TODO abhijitm this is kind of dumb, just force ModFrmHil
-      // to have H.0 as DirichletCharacter if it's trivial, rather
-      // than an integer lmao.
-      chi := (NebentypusOrder(M) eq 1) select 0 else DirichletCharacter(M);
+      chi := DirichletCharacter(M);
       
       // For nontrivial nebentypus, we need to work over the compositum field
       // because twist_factor produces elements in the cyclotomic field
@@ -753,7 +750,7 @@ function InnerProductMatrixBig(M)
     // TODO abhijitm actually, we can use the inner product matrix
     // even when the character is nontrivial
     bool, w := IsParallelWeight(M);
-    bool and:= (NebentypusOrder(M) eq 1);
+    bool and:= (Order(DirichletCharacter(M)) eq 1);
     if bool and (w eq 2) then
       // Weight 2: inner product is given by the usual mass = 1/#stabilizer
       easy := Level(M) eq Discriminant(QuaternionOrder(M));
@@ -930,7 +927,7 @@ function BasisMatrixDefinite(M : EisensteinAllowed:=false)
 
   else // M is ambient
 
-    weight2trivchar := Seqset(Weight(M)) eq {2} and (NebentypusOrder(M) eq 1);
+    weight2trivchar := Seqset(Weight(M)) eq {2} and (Order(DirichletCharacter(M)) eq 1);
 
     if not assigned M`basis_matrix_big then
       easy := weight2trivchar and Level(M) eq Discriminant(QuaternionOrder(M));
@@ -1029,7 +1026,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
 
   A := Algebra(QuaternionOrder(M));
   N := Level(M);
-  weight2trivchar := Seqset(Weight(M)) eq {2} and (NebentypusOrder(M) eq 1);
+  weight2trivchar := Seqset(Weight(M)) eq {2} and (Order(DirichletCharacter(M)) eq 1);
 
   // easy = basis of big space is given by the rids
   easy := weight2trivchar and N eq Discriminant(QuaternionOrder(M));
@@ -1208,8 +1205,7 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
 
               chi := DirichletCharacter(M);
               // true iff the order of the nebentypus is bigger than 2
-              irrat_neb_field := Type(chi) ne RngIntElt 
-                and not IsTrivial(chi) and Order(chi) gt 2;
+              irrat_neb_field := not IsTrivial(chi) and Order(chi) gt 2;
 
               // This is an indexed set of the contributing orbits of the 
               // lth P1 
@@ -1364,7 +1360,7 @@ function AtkinLehnerDefiniteBig(M, p)
 
    tp := get_tps(M, pe);
 
-   weight2trivchar := (Seqset(Weight(M)) eq {2}) and (NebentypusOrder(M) eq 1);
+   weight2trivchar := (Seqset(Weight(M)) eq {2}) and (Order(DirichletCharacter(M)) eq 1);
 
    Wp := MatrixRing(F, dim) ! 0; 
 
@@ -1577,7 +1573,7 @@ function DegeneracyDown1DefiniteBig(M, p)
 
    weight2 := Seqset(Weight(M)) eq {2};
    assert weight2;
-   assert NebentypusOrder(M) eq 1;
+   assert Order(DirichletCharacter(M)) eq 1;
 
    // TO DO: easy case where N/p = 1, get the matrix just using stab_orders
 
@@ -1723,7 +1719,7 @@ function DegeneracyMapDomain(M, d)
    assert IsIntegral(d/NewLevel(M));
    assert IsIntegral(Level(M)/d); 
 
-   if NebentypusOrder(M) eq 1 then
+   if Order(DirichletCharacter(M)) eq 1 then
       new_chi := DirichletCharacter(M);
    else
       chi := DirichletCharacter(M);
@@ -1786,7 +1782,7 @@ function DegeneracyMap(M1, M2, p : Big:=false, EisensteinAllowed:=false)
    w2 := M2`weight_dimension;
    assert w1 eq w2;
 
-   weight2trivchar := (w1 eq 1) and (NebentypusOrder(M1) eq 1) and (NebentypusOrder(M2) eq 1);
+   weight2trivchar := (w1 eq 1) and (Order(DirichletCharacter(M1)) eq 1) and (Order(DirichletCharacter(M2)) eq 1);
    // #xx`CFD is the number of orbits in the projective line
    // of xx which contribute nontrivially to the basis
    nCFD1 := [#xx`CFD : xx in HMDF1];
@@ -1837,7 +1833,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    A,B:= BasisMatrixDefinite(MA);
 
    weight2 := Seqset(Weight(M)) eq {2};
-   weight2trivchar := weight2 and (NebentypusOrder(M) eq 1);
+   weight2trivchar := weight2 and (Order(DirichletCharacter(M)) eq 1);
    assert not weight2trivchar;
 
    O := Integers(BaseField(M));
@@ -1847,13 +1843,10 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    assert NewLevel(MA) eq D; 
    N := Lnew/D; 
    assert ISA(Type(N), RngOrdIdl); // integral
-   if (NebentypusOrder(M) eq 1) then
+   if (Order(DirichletCharacter(M)) eq 1) then
       valid_primes := [fact_tup : fact_tup in Factorization(N)];
    else
       // we can only go as far as the conductor of the nebentypus
-      //
-      // TODO abhijitm once DirichletCharacter is always a character, 
-      // we won't need the if/else
       valid_primes := Factorization(N / Conductor(DirichletCharacter(M)));
    end if;
 
@@ -1918,7 +1911,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite(M)
    assert IsDefinite(M); 
 
    weight2 := Seqset(Weight(M)) eq {2};
-   weight2trivchar := weight2 and (NebentypusOrder(M) eq 1);
+   weight2trivchar := weight2 and (Order(DirichletCharacter(M)) eq 1);
    if not weight2trivchar then
       // TO DO implement IP for nontrivial nebentypus
       ComputeBasisMatrixOfNewSubspaceDefinite_general(M);
