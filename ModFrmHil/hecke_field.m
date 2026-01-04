@@ -142,44 +142,6 @@ function minimal_hecke_matrix_field(M)
   return H;
 end function;
 
-// from definite.m
-
-function DegeneracyMapDomain(M, d)
-   // Given an ambient space M and an integral ideal d such that NewLevel(M) | d | Level(M), 
-   // returns a space of level d and same weight as M, defined using internals that are
-   // compatible with M (same quaternion algebra, same splitting map and weight representation)
-
-   QO:=M`QuaternionOrder;
-   assert NewLevel(M) eq Discriminant(QO);
-   assert IsIntegral(d/NewLevel(M));
-   assert IsIntegral(Level(M)/d); 
-
-   if NebentypusOrder(M) eq 1 then
-      new_chi := DirichletCharacter(M);
-   else
-      chi := DirichletCharacter(M);
-      N := Level(M);
-      _, m_inf := Modulus(chi);
-      // ensure that the conductor of chi divides d
-      assert d subset Conductor(chi);
-      new_chi := Restrict(chi, d, m_inf);
-   end if;
-
-   // MUST use identical internal data: in particular, rids and weight_rep.
-   // Call low-level constructor to avoid complications with caching, and don't cache DM
-   // TO DO: use cached spaces, to avoid recomputing ModFrmHilDirFacts (that's the only advantage)
-   DM:=HMF0(BaseField(M), d, NewLevel(M), new_chi, Weight(M), CentralCharacter(M));
-   DM`QuaternionOrder:=QO;
-   DM`rids:=get_rids(M);
-   DM`splitting_map:=M`splitting_map; // can use same splitting_map even though its level is larger than needed
-   DM`weight_base_field:=M`weight_base_field;
-   DM`weight_dimension:=M`weight_dimension;
-   if Seqset(Weight(M)) ne {2} then // nontrivial weight
-      DM`weight_rep:=M`weight_rep;
-   end if;
-   return DM;
-end function;
-
 function WeightRepresentation(M) // ModFrmHil -> Map
 //  Given a space of Hilbert modular forms over a totally real number field F. This determines if the 
 //  weight k is an arithmetic. If so, an extension of F which is Galois over Q and splits H is found. Then,
