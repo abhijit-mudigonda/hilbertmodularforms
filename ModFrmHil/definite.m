@@ -17,6 +17,7 @@ import "hecke.m" : please_report, pseudo_inverse, basis_is_honest;
 import "weight_rep.m" : FiniteModulusCharFromHeckeChar, is_paritious;
 import !"Geometry/ModFrmHil/precompute.m" : get_rids, get_tps;
 import !"Geometry/ModFrmHil/proj1.m" : residue_class_reps;
+import "hackobj.m" : HMF0;
 
 debug := false;
 
