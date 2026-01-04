@@ -75,14 +75,68 @@ procedure ExtendMultiplicativelyHelper(~coeffs, ~mfh_reps, M, N, k, chi, Fourier
   vprintf HilbertModularForms: "ExtendMultiplicatively: Computing coefficients of general n...\n";
   t1 := Cputime();
   
-  // Extend multiplicatively for general ideals
+  // Build a map from ideals to their exponent vectors
+  // Each ideal nn = prod_i p_i^{e_i} is represented as a tuple (e_1, ..., e_r)
+  ideal_to_exponents := AssociativeArray();
+  exponents_to_ideal := AssociativeArray();
+  
   for nn in ideals do
-    if IsDefined(coeffs, nn) then
+    if nn eq 0*ZF then
       continue;
     end if;
-    coeffs[nn] := StrongMultiply([* coeffs[pair[1]^pair[2]] : pair in factorization(nn) *]);
+    fac := factorization(nn);
+    exps := [0 : _ in prime_ideals];
+    for pair in fac do
+      pp := pair[1];
+      e := pair[2];
+      idx := Index(prime_ideals, pp);
+      if idx ne 0 then
+        exps[idx] := e;
+      end if;
+    end for;
+    exp_tuple := <exps[i] : i in [1..#exps]>;
+    ideal_to_exponents[nn] := exp_tuple;
+    exponents_to_ideal[exp_tuple] := nn;
+  end for;
+  
+  // Sort ideals by L1 norm of their exponent vectors
+  // This ensures that when we compute a_nn, we've already computed all necessary factors
+  ideal_list := [nn : nn in ideals | nn ne 0*ZF and not IsDefined(coeffs, nn)];
+  l1_norms := [&+[e : e in ideal_to_exponents[nn]] : nn in ideal_list];
+  ParallelSort(~l1_norms, ~ideal_list);
+  
+  // Extend multiplicatively: for each ideal, compute using one multiplication
+  for nn in ideal_list do
+    exp_vec := ideal_to_exponents[nn];
+    
+    // Find the first nonzero exponent
+    j := 0;
+    for i in [1..#exp_vec] do
+      if exp_vec[i] ne 0 then
+        j := i;
+        break;
+      end if;
+    end for;
+    
+    if j eq 0 then
+      // This is the unit ideal, should already be defined
+      continue;
+    end if;
+    
+    // Compute nn = p_j^{e_j} * (nn / p_j^{e_j})
+    pp := prime_ideals[j];
+    ppe := pp^exp_vec[j];
+    nn_reduced := nn / ppe;
+    
+    // Compute a_nn = a_{p_j^{e_j}} * a_{nn / p_j^{e_j}}
+    if is_matrix_mode then
+      coeffs[nn] := coeffs[ppe] * coeffs[nn_reduced];
+    else
+      coeffs[nn] := StrongMultiply([* coeffs[ppe], coeffs[nn_reduced] *]);
+    end if;
+    
     if FourierCoeffMode then
-      mfh_reps[nn] := &*[mfh_reps[pair[1]]^pair[2] : pair in factorization(nn)];
+      mfh_reps[nn] := mfh_reps[ppe] * mfh_reps[nn_reduced];
     end if;
   end for;
   
