@@ -2300,6 +2300,8 @@ the same properties regarding dimensions of old and new spaces that hold for mod
    Nnew := NewLevel(M);
    require N subset p : "The space is already new at p, so this should not be called.";
    require Norm(Nnew + p) eq 1 : "The given space should have new level prime to p"; 
+   require N / Conductor(DirichletCharacter(M)) subset p : "There can be no oldspace \
+     contribution from p if the conductor of the nebentypus doesn't divide N / p";
 
    // Work out dimension of the p-old space by inclusion-exclusion
    Mp := space_with_level(M, N/p, Nnew);
@@ -2312,7 +2314,7 @@ the same properties regarding dimensions of old and new spaces that hold for mod
    end if;
 
    old_dimension := 2*Dimension(Mp);
-   if N subset p^2 then
+   if N / Conductor(DirichletCharacter(M)) subset p^2 then
      Mp2 := space_with_level(M, N/p^2, Nnew);
      old_dimension -:= Dimension(Mp2);
    end if;
