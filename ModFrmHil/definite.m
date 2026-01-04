@@ -1879,17 +1879,14 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
       vtime ModFrmHil:
       D1 := DegeneracyMap(N1, MA, 1*O);
 
-      if eP eq 1 then
+      if (eP eq 1) and IsOne(GCD(P, N / P^eP)) and (not debug) then
          vtime ModFrmHil:
-         D2old := DegeneracyMap(N1, MA, P);
-      end if;
-
-      if eP gt 1 or debug then
+         D2 := DegeneracyMap(N1, MA, P);
+      else 
          AL := AtkinLehnerOperator(MA, P);
-         D2new := D1 * AL;
+         D2 := D1 * AL;
       end if;
 
-      D2 := eP eq 1 select D2old else D2new;
       old_space_mat := VerticalJoin(D1, D2);
 
       // checks
@@ -1897,7 +1894,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
          assert Rank(old_space_mat) eq 2*Rank(D1);
          assert Rank(old_space_mat) eq 2*Rank(D2);
          if debug then
-            assert RowSpace(old_space_mat) eq RowSpace(D1) + RowSpace(D2new);
+            assert RowSpace(old_space_mat) eq RowSpace(D1) + RowSpace(D2);
          end if;
       end if;
 
