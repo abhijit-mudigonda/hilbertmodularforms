@@ -40,7 +40,7 @@ intrinsic MagmaNewCuspForms(Mk::ModFrmHilD) -> SeqEnum[ModFrmHilElt]
 end intrinsic;
 
 // Eigenforms new/old in Mk
-intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=true) -> SeqEnum[ModFrmHilDElt]
+intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=true, UseFourierCoeffs:=false) -> SeqEnum[ModFrmHilDElt]
   {
     return the inclusions of f, as ModFrmHil(Elt), into M
 
@@ -57,7 +57,10 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
     In general, the field of definition will be the smallest field over which
     the Hecke operators are defined. See 
     https://magma.maths.usyd.edu.au/magma/handbook/text/1735
-    for some more about this. 
+    for some more about this.
+    
+    If UseFourierCoeffs is true, use the Fourier coefficient mode even for
+    paritious weights (for testing purposes).
   }
 
   if Type(f) eq ModFrmHil then
@@ -133,20 +136,24 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
   coeffs := AssociativeArray();
   // stores a pi for each pp
   mfh_reps := AssociativeArray();
+  
+  // Determine whether to use Fourier coefficient mode
+  use_fourier_mode := (not IsParitious(Weight(Mk))) or UseFourierCoeffs;
+  
   vtime HilbertModularForms:
   for pp in primes do
-    if IsParitious(Weight(Mk)) then
-      coeffs[pp] :=  fn(pp);
-    else
+    if use_fourier_mode then
       coeffs[pp], mfh_reps[pp] := fn(pp);
+    else
+      coeffs[pp] :=  fn(pp);
     end if;
   end for;
   ZF := Integers(Mk);
 
-  if IsParitious(Weight(Mk)) then
-    ExtendMultiplicatively(~coeffs, Mk);
-  else 
+  if use_fourier_mode then
     ExtendMultiplicatively(~coeffs, ~mfh_reps, Mk);
+  else 
+    ExtendMultiplicatively(~coeffs, Mk);
   end if;
 
   vprintf HilbertModularForms: "Building coefficient arrays for basis elements...\n";
@@ -171,8 +178,6 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
     ddinv := dd^-1;
     // coefficients by bb
     CoeffsArray := [AssociativeArray() : _ in [1..Nrows(Tzeta)]];
-    
-    vprintf HilbertModularForms: "  Processing divisor %o (of %o)...\n", dd, #divisors;
     
     for bb in NarrowClassGroupReps(M) do
       for i in [1..Nrows(Tzeta)] do
@@ -234,7 +239,7 @@ intrinsic Eigenforms(Mk::ModFrmHilD, f::Any, chi::GrpHeckeElt : GaloisDescent:=t
   return res;
 end intrinsic;
 
-intrinsic OldCuspForms(MkN1::ModFrmHilD, MkN2::ModFrmHilD : GaloisDescent:=true) -> SeqEnum[ModFrmHilDElt]
+intrinsic OldCuspForms(MkN1::ModFrmHilD, MkN2::ModFrmHilD : GaloisDescent:=true, UseFourierCoeffs:=false) -> SeqEnum[ModFrmHilDElt]
   {return the inclusion of MkN1 into MkN2}
   require Weight(MkN1) eq Weight(MkN2) : "the weights must match";
   require BaseField(MkN1) eq BaseField(MkN2) : "the base fields must match";
@@ -245,7 +250,7 @@ intrinsic OldCuspForms(MkN1::ModFrmHilD, MkN2::ModFrmHilD : GaloisDescent:=true)
   N2 := Level(MkN2);
   require N2 subset N1: "the level of the first argument must divide the level of the second argument";
   //require N2 ne N1: "the level of the first argument must differ from the level of the second argument";
-  return &cat[Eigenforms(MkN2, elt[1], elt[2] : GaloisDescent:=GaloisDescent) : elt in MagmaNewCuspForms(MkN1)];
+  return &cat[Eigenforms(MkN2, elt[1], elt[2] : GaloisDescent:=GaloisDescent, UseFourierCoeffs:=UseFourierCoeffs) : elt in MagmaNewCuspForms(MkN1)];
 end intrinsic;
 
 
