@@ -22,8 +22,6 @@ import !"Geometry/ModFrmHil/precompute.m" :
 
 import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne;
 
-import "hackobj.m" : HMF0;
-
 import "weight_rep.m" : weight_map_arch, is_paritious;
 import "hecke.m" : get_image_of_eps_nonparit;
 import "definite.m":
