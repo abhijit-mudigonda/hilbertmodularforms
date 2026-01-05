@@ -110,7 +110,6 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
   for pp in primes do
     hm := HeckeMatrix(basis, pp : use_coeff:=use_coeff);
     if not IsZero(hm) then
-      print "nonzero hm", IdealOneLine(pp);
       Append(~hecke_matrices, HeckeMatrix(basis, pp : use_coeff:=use_coeff));
     end if;
   end for;
