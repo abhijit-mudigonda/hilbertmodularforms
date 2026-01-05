@@ -13,7 +13,7 @@ freeze;
 //////////////////////////////////////////////////////////////////////////////
 
 import "hecke_field.m" : WeightRepresentation, hecke_matrix_field;
-import "hecke.m" : please_report, pseudo_inverse, basis_is_honest;
+import "hecke.m" : please_report, pseudo_inverse, basis_is_honest, ComputeNewSubspaceBasisMatricesUsingHeckeAction;
 import "weight_rep.m" : FiniteModulusCharFromHeckeChar, is_paritious;
 import !"Geometry/ModFrmHil/precompute.m" : get_rids, get_tps;
 import !"Geometry/ModFrmHil/proj1.m" : residue_class_reps;
@@ -1836,6 +1836,15 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    weight2trivchar := weight2 and (Order(DirichletCharacter(M)) eq 1);
    assert not weight2trivchar;
 
+   chi := DirichletCharacter(M);
+   
+   // If nebentypus is nontrivial, use Hecke action approach (shared helper function)
+   if Order(chi) ne 1 then
+      ComputeNewSubspaceBasisMatricesUsingHeckeAction(M, MA);
+      return;
+   end if;
+
+   // Otherwise, use degeneracy map + Atkin-Lehner approach (original code)
    O := Integers(BaseField(M));
    D := Discriminant(QuaternionOrder(M));
    L := Level(M);
@@ -1843,12 +1852,7 @@ procedure ComputeBasisMatrixOfNewSubspaceDefinite_general(M)
    assert NewLevel(MA) eq D; 
    N := Lnew/D; 
    assert ISA(Type(N), RngOrdIdl); // integral
-   if (Order(DirichletCharacter(M)) eq 1) then
-      valid_primes := [fact_tup : fact_tup in Factorization(N)];
-   else
-      // we can only go as far as the conductor of the nebentypus
-      valid_primes := Factorization(N / Conductor(DirichletCharacter(M)));
-   end if;
+   valid_primes := [fact_tup : fact_tup in Factorization(N)];
 
    V := VectorSpace(BaseRing(A), Nrows(A)); 
    W := sub<V|>;
