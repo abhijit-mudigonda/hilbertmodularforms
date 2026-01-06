@@ -13,4 +13,5 @@ ModFrmHil/spec~
 *.ipynb
 ModFrmHilD/vdgV.m
 *.html
-logging/
+logging/*
+parallel-logs/*
