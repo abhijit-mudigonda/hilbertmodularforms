@@ -1,0 +1,29 @@
+// This is all the order 2 HeckeCharLabels which should have associated CM forms
+// Everything above the --- works as of commit ffac295a35d74a15dd97a020b0fa385ed55128cc,
+// and I see a 2-dimensional Sk space which squares to something living in the 
+// appropriate (2,4) space.
+
+-2.0.1_119.2_2u1.0u1.2u
+-2.0.1_196.1_2u0.1u1.2u
+-2.0.1_224.1_2u1.0.0.1u1.2u
+-2.0.1_252.1_2u1.1.0u1.2u
+-2.0.1_272.2_2u1.1.0u1.2u
+-2.0.1_272.1_2u0.0.1u1.2u
+-2.0.1_391.1_2u1.0u1.2u // 
+-2.0.1_441.1_2u0.1u1.2u // oldspace issue
+-2.0.1_511.2_2u0.1u1.2u
+-2.0.1_512.1_2u0.1.1u1.2u
+-2.0.1_527.1_2u0.1u1.2u
+
+--- 
+-2.0.1_476.3_2u1.0.1u1.2u // precision too low
+-2.0.1_544.2_2u0.0.1.1u1.2u
+-2.0.1_544.1_2u1.1.1.0u1.2u
+
+
+// The Grossencharacter code fails at -2.0.1_343.2_2u1.1u1.2u,
+// there might be something here
+
+
+// This is the label of Buzzard's example, but it's order 8
+-2.0.1_164.1_8u1.6u1.2u

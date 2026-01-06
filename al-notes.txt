@@ -1,0 +1,29 @@
+12/28
+- Checked w/ the example of level 11*ZF and level 22*ZF
+- The rowspaces of D1 and D2 are Tp stable (and not Up stable but they shouldn't be)
+- D1 and D2 are AL(., pp) stable for pp dividing 11*ZF
+- They are not so for pp dividing 2*ZF, and they shouldn't be since that operator
+is meant to swap D1 and D2
+- but AL(., 2*ZF) doesn't seem to swap the rowspaces of D1 and D2
+- Also, the rowspaces of D1 and D2 are not disjoint - they seem to intersect 1-dimension.
+I don't yet see how this can be.
+
+12/30
+Here are properties that I expect the things to obey
+- Up(beta) = alpha
+- Up(alpha(f)) is some linear combination of alpha(f) and beta(f), i.e.
+Up preserves the old space
+- AL swaps images of alpha(U) and beta(U) where U is a Galois orbit
+- alpha and beta have 
+
+Things to check
+- Do AL and the degeneracy maps *actually* disagree when p^2 | N? Probably yes, but where?
+Compare this to a base change example, and figure out if there's an inconsistency. If not,
+then the behavior apparently distinguishes between base/non-base change, whch is weird af. 
+- Where is the code presently failing? Make sure that the oldform/AL code is actually what's suspect
+- Why, in the existing code, is alpha * Up = beta? It should really be the opposite...
+- Confirm, via Casselman/etc., that the "usual" degeneracy maps should be the ones that work here,
+and try to test what goes wrong when you use AL 
+- Also confirm that AL should indeed be swapping oldspaces.
+- Understand what the code is *actually* doing. 
+

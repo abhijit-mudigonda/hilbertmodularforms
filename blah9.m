@@ -1,29 +1,46 @@
+// CAN DELETE
 load "config.m";
 
-F := QuadraticField(5);
-ZF := Integers(F);
-M := GradedRingOfHMFs(F, 444);
-k := [2, 2];
-N := ideal<ZF | 38, 4*ZF.2 + 16>;
-H := HeckeCharacterGroup(N, [1,2]);
-chi := H.1^2;
-assert Order(chi) eq 3;
-Mk := HMFSpace(M, N, k, chi);
-Sk := CuspFormBasis(Mk);
+SetVerbose("HilbertModularForms", 3);
+SetVerbose("ModFrmHil", 3);
 
+F := QuadraticField(2);
+M := GradedRingOfHMFs(F, 500);
+k := [2, 3];
 
-/*
-for N in IdealsUpTo(100, F) do
-  print Norm(N), IdealOneLine(N);
-  H := HeckeCharacterGroup(N, [1,2]);
-  chis := [chi : chi in Elements(H) | Order(chi) gt 2 and IsCompatibleWeight(chi, k)];
-  for chi in chis do
-    Mk := HMFSpace(M, N, k, chi);
-    print "chi", chi;
-    Sk := CuspFormBasis(Mk);
-    if #Sk gt 0 then
-      print "found one!", chi, HeckeCharLabel(chi), #Sk;
+chi_labels := [
+  "-2.0.1_119.2_2u1.0u1.2u",
+  "-2.0.1_196.1_2u0.1u1.2u",
+  "-2.0.1_224.1_2u1.0.0.1u1.2u",
+  "-2.0.1_252.1_2u1.1.0u1.2u",
+  "-2.0.1_272.2_2u1.1.0u1.2u",
+  "-2.0.1_272.1_2u0.0.1u1.2u",
+  "-2.0.1_391.1_2u1.0u1.2u",
+  "-2.0.1_441.1_2u0.1u1.2u",
+  "-2.0.1_476.3_2u1.0.1u1.2u",
+  "-2.0.1_511.2_2u0.1u1.2u",
+  "-2.0.1_512.1_2u0.1.1u1.2u",
+  "-2.0.1_527.1_2u0.1u1.2u",
+  "-2.0.1_544.2_2u0.0.1.1u1.2u",
+  "-2.0.1_544.1_2u1.1.1.0u1.2u"
+];
+
+for chi_label in chi_labels do
+  chi_12 := FullChiLabelToHeckeChar(chi_label);
+  H := Parent(chi_12);
+  N := Modulus(chi_12);
+  chis := [];
+  for chi in Elements(H) do
+    if IsCompatibleWeight(chi, k) then
+      Append(~chis, chi);
     end if;
   end for;
+
+  for chi in chis do
+    for tup in Factorization(N) do
+      if tup[2] eq 1 and ((N / tup[1]) subset Conductor(chi)) then
+        print IdealOneLine(tup[1]), HeckeCharLabel(chi);
+      end if;
+    end for;
+  end for;
 end for;
-*/

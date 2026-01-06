@@ -1,37 +1,32 @@
 load "config.m";
 
-import "ModFrmHil/definite.m" : HeckeOperatorDefiniteBig;
-import !"Geometry/ModFrmHil/hecke.m" : restriction;
-
-MAX_PRIME := 50;
+SetVerbose("ModFrmHil", 3);
+SetVerbose("HilbertModularForms", 3);
 
 F := QuadraticField(2);
 ZF := Integers(F);
+k := [2,3];
 
-k := [3, 3];
-N := 5*ZF;
+chi_label := "-2.0.1_391.1_2u1.1u1.2u";
+qq := ideal<ZF | 17, ZF.2 + 6>;
 
-H := HeckeCharacterGroup(N, [1, 2]);
-chi := H.1;
-assert Order(chi) eq 4;
-print HeckeCharLabel(chi);
-assert HeckeCharLabel(chi) eq "-2.0.1_25.1_4u1u1.2u";
+chi := FullChiLabelToHeckeChar(chi_label);
+assert Order(chi) eq 2;
+assert IsCompatibleWeight(chi, k);
+N := Modulus(chi);
 
-/*
-B_def := QuaternionAlgebra(1*ZF, InfinitePlaces(F) : Optimized);
-O_def := MaximalOrder(B_def);
+M := GradedRingOfHMFs(F, 200);
+M23 := HMFSpace(M, N, k, chi);
+S23 := CuspFormBasis(M23);
 
-M := HilbertCuspForms(F, N, chi, k);
+print "done S23, now S46!";
+M46 := HMFSpace(M, N, [4,6]);
+S46 := CuspFormBasis(M46);
 
-def_hecke_mtrxs := AssociativeArray();
-for pp in PrimesUpTo(MAX_PRIME, F) do
-  hecke_mtrx := HeckeOperatorDefiniteBig(M, pp);
-  res_hecke_mtrx := restriction(M, hecke_mtrx);
-  def_hecke_mtrxs[pp] := res_hecke_mtrx;
-end for;
-*/
+S23_squared := Basis(&cat[[f * g : g in S23] : f in S23]);
 
-GRing := GradedRingOfHMFs(F, 400);
-Mk := HMFSpace(GRing, N, k, chi);
-Sk := CuspFormBasis(Mk);
-Sk_hs := HeckeStabilityCuspBasis(Mk : prove:=false, stable_only:=true);
+print "dim S23", #S23;
+print "dim S23_squared", #S23_squared;
+print "dim S46", #S46;
+print "intersection", #Intersection(S23_squared, S46);
+
