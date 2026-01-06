@@ -8,7 +8,7 @@ try
 
   assert IsCompatibleWeight(chi, k);
 
-  M := GradedRingOfHMFs(F, 777);
+  M := GradedRingOfHMFs(F, 1111);
   Mk := HMFSpace(M, N, k, chi);
   Sk := CuspFormBasis(Mk : StableOnly:=true);
 
