@@ -15,6 +15,10 @@ intrinsic HeckeStableSubspace(
       hecke_operator := func<f | HeckeOperatorCoeff(f, F!pi)>;
     end if;
 
+    if #V eq 0 then
+      return V;
+    end if;
+
     // compute the kernel of Tp
     // we include the kernel in our final output
     // because it is also Hecke stable
@@ -25,10 +29,17 @@ intrinsic HeckeStableSubspace(
     // removing the kernel before entering the
     // iterative intersection loop
     V := [V[i] : i in PivotRows(CoefficientsMatrix(TpV))];
+    
+    // If all forms were in the kernel, return just the kernel
+
+    if #V eq 0 then
+      return Tp_kernel;
+    end if;
+    
     Vprev := V;
     dimprev := #V;
 
-    for _ in [1 .. #V] do
+    for _ in [1 .. #V+1] do
         vprintf HilbertModularForms:  "Current dim = %o\n", dimprev;
         TpVprev := [hecke_operator(g) : g in Vprev];
         Vnew := Intersection(Vprev, Basis(TpVprev));
@@ -53,6 +64,7 @@ intrinsic HeckeStableSubspace(
         Vprev := Vnew;
         dimprev := #Vprev;
     end for;
+
 end intrinsic;
 
 
