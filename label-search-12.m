@@ -8,11 +8,16 @@ try
 
   assert IsCompatibleWeight(chi, k);
 
-  M := GradedRingOfHMFs(F, 440);
+  M := GradedRingOfHMFs(F, 777);
   Mk := HMFSpace(M, N, k, chi);
   Sk := CuspFormBasis(Mk : StableOnly:=true);
 
+  pp_2 := PrimesUpTo(20, F)[2];
   if #Sk gt 0 then
+    V := HeckeStableSubspace(Sk, pp_2 : use_fourier:=true);
+  end if;
+
+  if #Sk gt 0 and #V gt 0 then
     print "\n********************************************************************";
     print "================= Found some forms!", chi_label;
     print "********************************************************************\n";
@@ -37,4 +42,3 @@ catch e
   fprintf log_file, "%o %o", chi_label, error_str;
   delete log_file;
 end try;
-
