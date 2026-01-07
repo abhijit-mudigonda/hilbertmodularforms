@@ -1,5 +1,5 @@
 outfile = open("label-commands.sh", 'w')
-infile = open("12-stable-labels-5-mit.txt", 'r')
+infile = open("12-unstable-labels-5-1000.txt", 'r')
 
 for line in infile.readlines():
     chi_label = line.strip()
