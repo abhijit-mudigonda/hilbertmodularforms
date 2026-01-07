@@ -36,7 +36,7 @@ end function;
 F := QuadraticField(5);
 
 k := [1,2];
-ideals := [N : N in IdealsUpTo(3000, F) | IsGaloisStable(N)];
+ideals := [N : N in IdealsUpTo(3000, F)];
 
 for N in ideals do
   H := HeckeCharacterGroup(N, [1,2]);

@@ -35,12 +35,12 @@ function IsGaloisStable(N)
   return true;
 end function;
 
-F := QuadraticField(2);
+F := QuadraticField(5);
 ZF := Integers(F);
 M := GradedRingOfHMFs(F, 300);
 k := [1, 2];
 
-ideals := [I : I in IdealsUpTo(2000, F) | IsGaloisStable(I)];
+ideals := [I : I in IdealsUpTo(3000, F) | Norm(I) gt 1000];
 
 for N in ideals do
   print Norm(N), IdealOneLine(N);

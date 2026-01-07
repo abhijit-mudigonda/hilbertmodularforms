@@ -6,13 +6,15 @@
 load "config.m";
 
 SetVerbose("ModFrmHil", 3);
-PREC := 200;
-F := QuadraticField(2);
+PREC := 777;
+// F := QuadraticField(2);
+F = QuadraticField(5);
 ZF := Integers(F);
 
 M := GradedRingOfHMFs(F, PREC);
 
-full_label := "-2.0.1_119.2_2u1.0u1.2u";
+// full_label := "-2.0.1_119.2_2u1.0u1.2u";
+full_label := "-5.0.1_576.1_2u0.1.0.1u1.2u";
 
 chi := FullChiLabelToHeckeChar(full_label);
 assert Order(chi) eq 2;
