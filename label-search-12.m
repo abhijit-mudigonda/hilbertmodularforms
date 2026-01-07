@@ -10,7 +10,7 @@ try
 
   assert IsCompatibleWeight(chi, k);
 
-  M := GradedRingOfHMFs(F, 300);
+  M := GradedRingOfHMFs(F, 1001);
   Mk := HMFSpace(M, N, k, chi);
   Sk := CuspFormBasis(Mk : StableOnly:=true);
 
@@ -36,13 +36,15 @@ try
       if #LinearDependence(Sk_squared) gt 0 then
         Sk_squared := Basis(Sk_squared);
       end if;
-      if #Intersection(Sk_squared, S24) eq #Sk_squared then
+      if #Intersection(Sk_squared, S24) gt 0 then
         print "\n********************************************************************";
         print "================= Found some forms!", chi_label;
         print "********************************************************************\n";
         proven_nonzero_log_file := Open("logging/squarechecked_nonzero_sk.log", "a");
         fprintf proven_nonzero_log_file, "%o\n", chi_label;
         delete proven_nonzero_log_file;
+      else
+        print "Fake news :("; 
       end if;
     end if;
   else
