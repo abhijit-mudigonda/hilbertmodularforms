@@ -1321,7 +1321,7 @@ end function;
 
 function AtkinLehnerDefiniteBig(M, p)
 
-   print "!!!!!!!!!!!!!!!! ATKIN LEHNER !!!!!!!!!!!!!!!!!!!!", Norm(p), IdealOneLine(p);
+   // print "!!!!!!!!!!!!!!!! ATKIN LEHNER !!!!!!!!!!!!!!!!!!!!", Norm(p), IdealOneLine(p);
    assert not assigned M`Ambient; // M is an ambient
 
    if not assigned M`ALBig then
