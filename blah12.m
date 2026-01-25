@@ -33,5 +33,8 @@ M := HilbertCuspForms(F, N, chi, k);
 pp := PrimesUpTo(50, F)[5];
 print Norm(pp);
 tp := get_tps(M, pp);
-print [<k, #tp[k]> : k in Keys(tp)];
+print [<ki, #tp[ki]> : ki in Keys(tp)];
+print [#{Norm(t) : t in tp[ki]} : ki in Keys(tp)];
+A := [Rep({Norm(t) : t in tp[ki]}) : ki in Keys(tp)];
+
 

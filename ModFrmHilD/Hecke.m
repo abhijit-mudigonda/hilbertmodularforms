@@ -114,6 +114,9 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
     end if;
   end for;
 
+  // If all Hecke matrices are zero, the basis is trivially an eigenbasis
+  require #hecke_matrices gt 0 : "No non-zero Hecke matrices found, please increase P";
+
   // B stores a matrix such that B * M * B^-1 is
   // diagonal for every Hecke matrix M. 
   // If e_i denotes the ith standard basis vector

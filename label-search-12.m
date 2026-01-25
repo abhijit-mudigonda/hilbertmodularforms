@@ -1,5 +1,6 @@
 load "config.m";
 
+SetVerbose("HilbertModularForms", 3);
 square_check := true;
 
 try 
@@ -20,9 +21,9 @@ try
   end if;
 
   if #Sk gt 0 and #V gt 0 then
-    print "Found some forms, need to verify", chi_label;
-        
     Sk := V;
+    print "Found some forms, need to verify", chi_label, #Sk;;
+        
     // Log labels with #Sk > 0
     nonzero_log_file := Open("logging/nonzero_sk.log", "a");
     fprintf nonzero_log_file, "%o\n", chi_label;
@@ -38,7 +39,7 @@ try
       end if;
       if #Intersection(Sk_squared, S24) gt 0 then
         print "\n********************************************************************";
-        print "================= Found some forms!", chi_label;
+        print "================= Found some forms!", chi_label, #Sk;
         print "********************************************************************\n";
         proven_nonzero_log_file := Open("logging/squarechecked_nonzero_sk.log", "a");
         fprintf proven_nonzero_log_file, "%o\n", chi_label;

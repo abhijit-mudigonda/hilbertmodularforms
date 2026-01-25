@@ -1,3 +1,5 @@
+// check the rationality condition on dihedral [1,2] forms
+
 load "config.m";
 
 function IsGaloisStable(N)
@@ -34,28 +36,29 @@ function IsGaloisStable(N)
 end function;
 
 F := QuadraticField(5);
+ZF := Integers(F);
+M := GradedRingOfHMFs(F, 300);
+k := [1, 2];
 
-k := [1,2];
-ideals := [N : N in IdealsUpTo(4000, F) | IsGaloisStable(N) and Norm(N) gt 2500];
+ideals := [I : I in IdealsUpTo(3000, F) | IsGaloisStable(I)];
 
 for N in ideals do
+  print Norm(N), IdealOneLine(N);
   H := HeckeCharacterGroup(N, [1,2]);
-  chis := [chi : chi in Elements(H) | Order(chi) eq 2 and IsCompatibleWeight(chi, k)];
+  chis := [chi : chi in Elements(H) | IsCompatibleWeight(chi, k)];
   for chi in chis do
-    flag := false;
-    flag_quad := false;
-    for psi in Elements(H) do
-      if IsCompatibleWeight(psi, [1, 1]) and IsGamma1EisensteinWeight(psi, 1) then
-        chi_eis := psi;
-        flag := true;
-        if Order(psi) eq 2 then
-          flag_quad := true;
+    if Order(chi) eq 2 then
+      Mk := HMFSpace(M, N, k, chi);
+      try
+        if #PossibleGrossenchars(Mk) gt 0 then
+          print "-----";
+          print "hi!!!", chi, Order(chi), HeckeCharLabel(chi);
+          print "-----";
         end if;
-      end if;
-    end for;
-    // print Norm(N), IdealOneLine(N), HeckeCharLabel(chi), chi, flag, flag_quad;
-    print HeckeCharLabel(chi), flag_quad;
+      catch e
+        print "failed at", HeckeCharLabel(chi);
+      end try;
+
+    end if;
   end for;
-end for;
-
-
+e

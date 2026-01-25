@@ -40,7 +40,7 @@ ZF := Integers(F);
 M := GradedRingOfHMFs(F, 300);
 k := [1, 2];
 
-ideals := [I : I in IdealsUpTo(3000, F) | Norm(I) gt 1000];
+ideals := [I : I in IdealsUpTo(3000, F) | IsGaloisStable(I)];
 
 for N in ideals do
   print Norm(N), IdealOneLine(N);
