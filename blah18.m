@@ -1,5 +1,3 @@
-// find (N, chi) tuples supporting dihedral [1,2] forms
-
 load "config.m";
 
 function IsGaloisStable(N)
@@ -35,32 +33,17 @@ function IsGaloisStable(N)
   return true;
 end function;
 
-Ds := [2, 5, 13, 17, 29, 37, 41, 53, 61, 73, 89, 97 ];
 
-for D in Ds do
-  F := QuadraticField(D);
-  ZF := Integers(F);
-  M := GradedRingOfHMFs(F, 100);
-  k := [1, 2];
+F := QuadraticField(110);
 
-  ideals := [I : I in IdealsUpTo(200, F) | IsGaloisStable(I)];
-
-  for N in ideals do
-    H := HeckeCharacterGroup(N, [1,2]);
-    chis := [chi : chi in Elements(H) | IsCompatibleWeight(chi, k)];
-    for chi in chis do
-      if Order(chi) eq 2 then
-        chi_label := HeckeCharLabel(chi);
-        // is_gal_stable := IsGaloisStable(N);
-        Mk := HMFSpace(M, N, k, chi);
-        try
-          num_poss_gchars := #PossibleGrossenchars(Mk);
-          print chi_label, chi, num_poss_gchars;
-        catch e
-          print chi_label, chi, -1;
-        end try;
-
-      end if;
-    end for;
-  end for;
+ideals := [I : I in IdealsUpTo(2000, F) | not IsZero(I)];
+for N in ideals do
+  // print IdealOneLine(N);
+  // print "Galois stable:", IsGaloisStable(N);
+  // print #RayClassGroup(N), #RayClassGroup(N, [1]), #RayClassGroup(N, [2]), #RayClassGroup(N, [1,2]);
+  if IsGaloisStable(N) and not (#RayClassGroup(N, [1,2]) gt Max([#RayClassGroup(N), #RayClassGroup(N, [1]), #RayClassGroup(N, [2])])) then
+    print "!!!!!!!!!!!!! CONTRADICTION !!!!!!!!!!!!!!!!", IdealOneLine(N);
+  end if;
 end for;
+
+print "number of ideals", #ideals;

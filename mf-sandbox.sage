@@ -148,7 +148,7 @@ def _check_forms_compatible(forms):
 # kernel_basis is a list of relations [c1,...,cn] with sum c_i f_i = 0
 def LinearDependence(forms, prec=None):
     if not forms:
-        return True, []
+        return False, []
     
     _check_forms_compatible(forms)
     
@@ -160,7 +160,7 @@ def LinearDependence(forms, prec=None):
     base_ring = coeff_vectors[0].parent().base_ring()
     M = matrix(base_ring, coeff_vectors)
     ker = M.left_kernel()
-    return (ker.dimension() == 0, [v for v in ker.basis()])
+    return (ker.dimension() != 0, [v for v in ker.basis()])
 
 # 4) Intersection of subspaces U, V given by their bases (lists of forms in the same space)
 # Returns a list of nonzero forms forming a basis for the intersection (up to the chosen precision).
@@ -211,6 +211,19 @@ def ContainedIn(f, U_basis, prec=None):
         return False, None
 
 
+for N in range(1, 401):
+  print("trying N", N)
+  E2N = EisensteinForms(N, 2);
+  dim_eis = len(E2N.eisenstein_series())
+  print(f"there are {dim_eis} Eisenstein series at this level")
+
+ p = Primes(modulus=N)[0]
+  lin_dep, ker = LinearDependence([alpha(h, p) for h in E2N.eisenstein_series()] + [beta(h, p) for h in E2N.eisenstein_series()])
+
+  if lin_dep:
+    print("found a collision!", N, ker)
+
+"""
 S15, S30 = CuspForms(15, 2), CuspForms(30, 2)
 f = S15.newforms()[0]
 g = S30.newforms()[0]
@@ -238,7 +251,7 @@ print(LinearDependence([alpha(g,2), beta(g,2)]))
 
 #h = M11.eisenstein_series()[0]
 #[(p, h.coefficient(p)) for p in primes_first_n(20)]
-"""
+
 # Example usage
 # Spaces
 M11, M22, M44 = spaces_N_p(11, p=2, k=2, cusp=False)
