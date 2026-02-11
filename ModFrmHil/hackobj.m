@@ -652,7 +652,7 @@ intrinsic HilbertCuspForms(F::FldNum, N::RngOrdIdl, chi::GrpHeckeElt,
   require #k eq Degree(F) :
          "The weight k should be a sequence of d integers, where d is the degree of the field";
   // TODO abhijitm this condition can be removed with a little bit of work
-  if not IsArithmeticWeight(F, k) then
+  if not IsArithmeticWeight(F, k) and IsOdd(Degree(F)) then
     require Max(k) eq k[#k] : "We may remove this restriction later,\
       but for now we expect the largest element of k to appear in\
       the last entry.";
