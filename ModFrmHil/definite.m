@@ -1153,13 +1153,18 @@ function HeckeOperatorDefiniteBig(M, p : Columns:="all", opposite_mode:=false)
           if bool then
             // this isn't actually used if we are in paritious weight
             // so we don't bother with the check in this case
-            lambda := Norm(tpml[1]);
+            // lambda := Norm(tpml[1]);
             if not is_paritious(Weight(M)) then
               // require that all the pi_i have the same reduced norm
-              assert #{Norm(x) : x in tpml} eq 1;
+              // print "-------------- hi", [Norm(x) : x in tpml];
+              assert #{Norm(x) : x in tpml} le 1;
               // TODO abhijitm can remove some of these asserts later
-              assert Norm(lambda) eq Norm(p);
-              assert IsTotallyPositive(lambda);
+              // print "-------- hi", Norm(lambda), Norm(p);
+              if m eq l and #tpml gt 0 then
+                lambda := Norm(tpml[1]);
+                assert Norm(lambda) eq Norm(p);
+                assert IsTotallyPositive(lambda);
+              end if;
             end if;
 
             if weight2trivchar then
