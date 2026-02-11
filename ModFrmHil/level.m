@@ -884,6 +884,10 @@ HeckeMatrix1 := function(O_mother, N, ell, ind, indp, ridsbasis, iotaell, weight
     for j in [1..numP1] do
       y := CompleteRelationFromUnit(Gammap_datum, Y_Op[i][j], weight : IsTrivialCoefficientModule:=IsTrivialCoefficientModule);
       if not IsTrivialCoefficientModule then
+        if BaseRing(y) ne BaseRing(Zp[X[i][j]]) then
+          print BaseRing(y);
+          print BaseRing(Zp[X[i][j]]);
+        end if;
         y := y*Zp[X[i][j]];
       end if;
       Append(~G, y);
