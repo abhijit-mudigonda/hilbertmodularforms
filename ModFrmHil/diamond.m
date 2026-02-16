@@ -1,4 +1,4 @@
-import !"Geometry/ModFrmHil/definite.m":
+import "definite.m":
   AtkinLehnerDefiniteBig,
   DegeneracyDown1DefiniteBig,
   DegeneracyDownpDefiniteBig,
