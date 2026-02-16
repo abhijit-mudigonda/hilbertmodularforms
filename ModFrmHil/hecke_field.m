@@ -1,4 +1,4 @@
-import !"Geometry/ModFrmHil/definite.m":
+import "definite.m":
   _ResidueMatrixRing,
   HMSDF;
 import !"Geometry/ModFrmHil/hackobj.m" :
@@ -20,7 +20,7 @@ import !"Geometry/ModFrmHil/hecke.m" :
   red_eigenvector,
   reduction;
 
-import !"Geometry/ModFrmHil/precompute.m" :
+import "precompute.m" :
   get_rids;
 
 import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne;
