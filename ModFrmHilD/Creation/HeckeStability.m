@@ -60,10 +60,10 @@ end intrinsic;
 intrinsic HeckeStabilityCuspBasis(
     Mk::ModFrmHilD
     :
-    prove:=true,
-    stable_only:=false,
+    prove:=false,
+    stable_only:=true,
     smallest_prime:=true,
-    SaveAndLoad:=false,
+    SaveAndLoad:=true,
     chi_eis:=0
     ) -> SeqEnum[ModFrmHilDElt]
     {

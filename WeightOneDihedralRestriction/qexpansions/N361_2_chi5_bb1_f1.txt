@@ -1,0 +1,7 @@
+# F = Quadratic Field with defining polynomial $.1^2 - 5 over the Rational Field, k = [ 1, 1 ]
+# N = 19 (norm 361, label 361_2)
+# chi = $.1^9*$.2 (label 2u0.1u1.2u, order 2)
+# bb = 1
+# eigenform index (within DihedralBasis) = 1
+# classical weight = 2, num_coeffs_stored = 20, is_zero = false
+0,2,0,-4,-4,6,0,-2,0,2,0,6,8,-8,0,-12,8,-6,0,2
