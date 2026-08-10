@@ -221,29 +221,119 @@ intrinsic MarkedEmbedding(K::FldNum) -> PlcNumElt
   return K`MarkedEmbedding;
 end intrinsic;
 
+// Returns the minimum pairwise distance between the complex roots of f,
+// or a harmless positive placeholder if f has fewer than two roots (in
+// which case there is nothing to disambiguate).
+function MinDistBtwnComplexRoots(f)
+  Cx := ComplexField();
+  roots := [tup[1] : tup in Roots(ChangeRing(f, Cx))];
+  if #roots le 1 then
+    return Cx!1;
+  end if;
+  min_dist := Abs(roots[1] - roots[2]);
+  for i in [1 .. #roots] do
+    for j in [i+1 .. #roots] do
+      min_dist := Min(Abs(roots[i] - roots[j]), min_dist);
+    end for;
+  end for;
+  return min_dist;
+end function;
+
 intrinsic IsStrongCoercible(L::Fld, x::.) -> BoolElt, FldElt
   {
     input:
       L - FldNum, FldQuad, FldCyc, or FldRat
       x - Any, but can return true only on a FldElt or RngElt
     returns:
-      false if x cannot be coerced into L. 
+      false if x cannot be coerced into L.
       true if x can be coerced into L, along with
         the strong coercion of x into L.
   }
 
-  // strong coercion is possible if and only if
-  // regular coercion is possible
-  if IsCoercible(L, x) then
-    return true, StrongCoerce(L, x);
-  else
+  if not Type(x) in [FldNumElt, FldRatElt, FldQuadElt, FldCycElt] then
     return false, _;
   end if;
+
+  if x in Rationals() then
+    return true, L!x;
+  end if;
+
+  K := Parent(x);
+
+  if L eq Rationals() then
+    return false, _;
+  end if;
+
+  // We trust Magma's coercion if K and L have the same
+  // defining polynomial
+  if DefiningPolyCoeffs(K) eq DefiningPolyCoeffs(L) then
+    if not IsIsomorphic(K, L) then
+      return false, _;
+    end if;
+    return true, L!x;
+  end if;
+
+  // NB: we deliberately do NOT use Magma's built-in `IsCoercible(L, x)`/`L!x`
+  // here. Those are only wired up automatically when L was literally
+  // constructed as a tower over (or compositum containing) K; for two
+  // independently constructed but abstractly isomorphic/related fields
+  // (e.g. a cyclotomic splitting field and a totally real base field built
+  // separately by the user, which is the common case in this codebase),
+  // `IsCoercible`/`!` either report false or throw a hard runtime error
+  // ("Arguments are not compatible") even though x is mathematically an
+  // element of L. Instead we find x's own minimal polynomial over Q, look
+  // for a root of it in L (which exists whenever x is really an element of
+  // L, regardless of how K and L happen to have been constructed), and
+  // disambiguate between the roots using the distinguished (marked) places
+  // of K and L.
+  // NB: we cache as a list of <L, x, r> triples, keyed on the actual
+  // element x (compared with `eq`), rather than on x's minimal
+  // polynomial. Two distinct (Galois-conjugate) elements of K can share
+  // the exact same minimal polynomial while requiring different roots of
+  // it in L, so caching by minimal polynomial alone would let whichever
+  // conjugate got processed first silently poison the cache for the
+  // other. We also cache by object identity of L (via IsIdentical), not
+  // DefiningPolyCoeffs(L): two distinct Magma field objects (e.g. two
+  // compositum fields built at different points of a computation) can
+  // share the same defining polynomial without being the same object.
+  if not assigned K`Extensions then
+    K`Extensions := [* *];
+  end if;
+
+  for entry in K`Extensions do
+    if IsIdentical(entry[1], L) and entry[2] eq x then
+      return true, entry[3];
+    end if;
+  end for;
+
+  f := MinimalPolynomial(x);
+  rts := Roots(f, L);
+  if #rts eq 0 then
+    return false, _;
+  end if;
+
+  // Always verify against the marked embeddings, even when f has only
+  // one root in L: if L does not contain the full Galois orbit of x
+  // (e.g. L is a non-normal subfield), that single root may correspond
+  // to a different conjugate of x rather than to x itself.
+  v := MarkedEmbedding(K);
+  w := MarkedEmbedding(L);
+  x_eval := ComplexField()!Evaluate(x, v);
+  tol := 0.5 * MinDistBtwnComplexRoots(f);
+  for tup in rts do
+    r := tup[1];
+    if Abs(ComplexField()!Evaluate(r, w) - x_eval) lt tol then
+      Append(~K`Extensions, <L, x, r>);
+      return true, r;
+    end if;
+  end for;
+
+  return false, _;
 end intrinsic;
 
 intrinsic StrongCoerce(L::Fld, x::RngElt) -> FldElt
   {
-    input: 
+    input:
       L - FldNum, FldQuad, FldCyc, or FldRat
       x - An element of the ring of integers of one of the above
     returns:
@@ -256,119 +346,25 @@ end intrinsic;
 
 intrinsic StrongCoerce(L::Fld, x::FldElt) -> FldElt
   {
-    input: 
+    input:
       L - FldNum, FldQuad, FldCyc, or FldRat
-      x - An element of one of the above 
+      x - An element of one of the above
     returns:
-      Returns x as an element of L, such that evaluation at 
+      Returns x as an element of L, such that evaluation at
       the distinguished place of the Parent of x is equal to
       evaluation of StrongCoerce(L, x) at the distinguished place
       of L.
 
-    Write K for the parent number field of x. There are two cases.
-
-    If K is a subfield of L and K_prim is a primitive
-    element of K, we fix an inclusion iota of K into L and find an automorphism
-    aut of K such that 
-
-    w(L!(aut(K_prim))) = v(K_prim).
-
-    Equivalently, we choose an inclusion of K into L which commutes with evaluation
-    under the distinguished places.
-    
-    If K contains L, then we choose a primitive element L_prim of L and
-    find an automorphism aut of K such that
-
-    w(L!aut(K!L_prim)) = v(K!L_prim),
-
-    Equivalently, we choose an automorphism of K so that restriction to L commutes 
-    with evaluation under the distinguished places.
+    We find the root of the minimal polynomial of x which lies in L and
+    agrees with x under the distinguished (marked) places of Parent(x)
+    and L; see IsStrongCoercible for details and rationale.
   }
 
   require Type(x) in [FldNumElt, FldRatElt, FldQuadElt, FldCycElt] : "%o is not a valid type for strong coercion", Type(x);
 
-  // If x is rational then all embeddings are the same,
-  // We do this case separately because Rationals() 
-  // does not have an Extensions attribute.
-  if x in Rationals() then
-    return L!x;
-  end if;
-
-  K := Parent(x);
-
-  // If L = QQ then all restrictions are the same.
-  if L eq Rationals() then
-    return Rationals()!x;
-  end if;
-
-  // We trust Magma's coercion if K and L have the same
-  // defining polynomial
-  if DefiningPolyCoeffs(K) eq DefiningPolyCoeffs(L) then
-    require IsIsomorphic(K, L) : "This should never happen, something is quite wrong";
-    return L!x;
-  end if;
-
-  if not assigned K`Extensions then
-    K`Extensions := AssociativeArray();
-  end if;
-  if not assigned K`Restrictions then
-    K`Restrictions := AssociativeArray();
-  end if;
-
-  require IsGalois(K) : "Strong coercion is not yet implemented\
-      for non-Galois initial fields";
-
-  // if K = QQ then all embeddings are the same
-  if K eq Rationals() then
-    K`Extensions[DefiningPolyCoeffs(L)] := Automorphisms(Rationals())[1];
-  end if;
-
-  // if L = QQ then all restrictions are the same
-  if L eq Rationals() then
-    K`Restrictions[DefiningPolyCoeffs(L)] := Automorphisms(K)[1];
-  end if;
-
-  if IsDefined(K`Extensions, DefiningPolyCoeffs(L)) then
-    phi := K`Extensions[DefiningPolyCoeffs(L)];
-    return L!phi(x);
-  elif IsDefined(K`Restrictions, DefiningPolyCoeffs(L)) then
-    phi := K`Restrictions[DefiningPolyCoeffs(L)];
-    return L!phi(x);
-  end if;
-
-  v := MarkedEmbedding(K);
-  w := MarkedEmbedding(L);
-
-  if IsSubfield(K, L) then
-    a := PrimitiveElement(K);
-    a_eval := ComplexField()!Evaluate(a, v);
-    auts := Automorphisms(K);
-    for aut in auts do
-      if Abs(ComplexField()!Evaluate(L!aut(a), w) - a_eval) lt 0.5 * MinDistBtwnRoots(K) then
-        K`Extensions[DefiningPolyCoeffs(L)] := aut;
-        return StrongCoerce(L, x);
-      end if;
-    end for;
-    require 0 eq 1 : "This should not be possible. Something has gone wrong.";
-  elif IsSubfield(L, K) then
-    auts := Automorphisms(K);
-    a := K!PrimitiveElement(L);
-    a_eval := ComplexField()!Evaluate(a, v);
-    for aut in auts do
-      // TODO abhijitm - This currently fails to coerce an element of a cyclotomic
-      // field extended from a number field back into that number field 
-      // For exmaple, if x is in K and L is a cyclotomic field containing K, then
-      // L!x will succeed but K!(L!x) will fail. This case is not important right
-      // now so I'm leaving it to future me (or present you!) to fix it. 
-      if Abs(ComplexField()!Evaluate(L!aut(a), w) - a_eval) lt 0.5 * MinDistBtwnRoots(K) then
-        K`Restrictions[DefiningPolyCoeffs(L)] := aut;
-        return StrongCoerce(L, x);
-      end if;
-    end for;
-    require 0 eq 1 : "This should not be possible. Something has gone wrong.";
-  else
-    require 0 eq 1 : "The parent of x neither contains nor is contained in L", K, L;
-  end if;
+  ok, y := IsStrongCoercible(L, x);
+  require ok : "The element", x, "in", Parent(x), "cannot be strong coerced into", L;
+  return y;
 end intrinsic;
 
 intrinsic ListToStrongCoercedSeq(A::List) -> SeqEnum
@@ -417,7 +413,7 @@ intrinsic StrongMultiply(A::List : K:=false) -> FldElt
       K := Compositum(K, NumberField(Parent(x)));
     end for;
   end if;
-      
+
   prod := K!1;
   for x in A do
     y := (Type(x) in [FldRatElt, RngIntElt]) select x else StrongCoerce(K, x);
@@ -510,14 +506,10 @@ intrinsic StrongCoerceMatrix(L::Fld, M::AlgMatElt) -> Mtrx
   L_poly := DefiningPolyCoeffs(L);
   if IsSubfield(K, L) then
     if not IsDefined(K`MatrixRingHoms, <L_poly, n>) then
-      // this is just to do the usual checks and assign the map
-      // K`Extensions[L_poly]
-      _ := StrongCoerce(L, K.1);
-      b, aut := IsDefined(K`Extensions, L_poly);
-      require b : "Something's gone wrong, this should be defined.";
-      phi := hom<K -> L | L!(K.1)>;
-      psi := aut * phi;
-      K`MatrixRingHoms[<L_poly, n>] := hom<R -> S | psi>;
+      ok, r := IsStrongCoercible(L, K.1);
+      require ok : "Something's gone wrong, K.1 should be strong coercible into L.";
+      phi := hom<K -> L | r>;
+      K`MatrixRingHoms[<L_poly, n>] := hom<R -> S | phi>;
     end if;
     return K`MatrixRingHoms[<L_poly, n>](M);
   elif IsSubfield(L, K) then
