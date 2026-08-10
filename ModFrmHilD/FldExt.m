@@ -250,6 +250,16 @@ intrinsic IsStrongCoercible(L::Fld, x::.) -> BoolElt, FldElt
         the strong coercion of x into L.
   }
 
+  // Promote ring elements (e.g. RngIntElt, RngOrdElt) to their field of
+  // fractions first, matching the docstring's promise to accept RngElt.
+  if ISA(Type(x), RngElt) and not ISA(Type(x), FldElt) then
+    ok, xf := IsCoercible(FieldOfFractions(Parent(x)), x);
+    if not ok then
+      return false, _;
+    end if;
+    return IsStrongCoercible(L, xf);
+  end if;
+
   if not Type(x) in [FldNumElt, FldRatElt, FldQuadElt, FldCycElt] then
     return false, _;
   end if;
