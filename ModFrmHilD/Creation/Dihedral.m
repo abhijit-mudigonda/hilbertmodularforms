@@ -273,8 +273,7 @@ intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
   N := Level(Mk);
   Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
 
-  // if k is nonparallel then induced characters can only come from CM extensions
-  if not IsParallel(Weight(Mk)) then
+  if not (IsParallel(Weight(Mk)) and Weight(Mk)[1] eq 1) then
     Ks := [K : K in Ks | IsTotallyComplex(K)];
   end if;
 
@@ -369,7 +368,9 @@ intrinsic ThetaSeries(Mk::ModFrmHilD, psi::HMFGrossenchar) -> ModFrmHilDElt
   end for;
 
   if paritious_weight then
-    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp);
+    nonzero_coeff_vals := [* v : pp -> v in coeffs_by_pp | v ne 0 *];
+    coeff_ring := (#nonzero_coeff_vals eq 0) select Rationals() else Parent(StrongAdd(nonzero_coeff_vals));
+    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : coeff_ring := coeff_ring);
   else
     return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : 
                                                     from_a_pp:=false,
