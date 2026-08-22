@@ -1,17 +1,18 @@
 intrinsic RestrictionToDiagonal(f::ModFrmHilDElt,M::ModFrmHilDGRng,bb::RngOrdIdl : AsCoefficients:=false) -> Any
-  {Given an HMF f of parallel weight k, returns the classical modular form of weight nk and level obtained from
-  restricting the component bb of the HMF to the diagonal, as a ModFrmElt. If AsCoefficients is true, instead
+  {Given an HMF f of weight k = [k_1,...,k_n] (not necessarily parallel), returns the classical modular
+  form of weight Sum(k) and level obtained from restricting the component bb of the HMF to the diagonal,
+  as a ModFrmElt. This is because for gamma in Gamma0(N) (embedded diagonally, so having rational entries,
+  hence agreeing with every infinite place of F), the automorphy factor is Prod_i (c z + d)^(k_i) =
+  (c z + d)^(Sum k_i), regardless of whether the k_i agree. If AsCoefficients is true, instead
   returns the SeqEnum of q-expansion coefficients of the restriction, in whatever ring they naturally live,
   without coercing into a classical ModularForms space (which only supports rational coefficients) -- this
   also works when the restriction's coefficients are not rational.}
-  require #SequenceToSet(Weight(f)) eq 1: "Only defined for parallel weight.";
   F := M`BaseField;
   ZF := Integers(F);
   NN := Level(f);
   N := Integers()!(Denominator(NN)^(-1)*Generator((Denominator(NN)*NN) meet Integers()));
   D := Different(ZF);
-  k :=  Weight(f)[1];
-  n := #Weight(f);
+  classical_weight := &+Weight(f);
   fbb := f`Components[bb];
   b := Integers()!(Denominator(bb)^(-1)*Generator((Denominator(bb)*bb) meet Integers()));
 
@@ -27,23 +28,21 @@ intrinsic RestrictionToDiagonal(f::ModFrmHilDElt,M::ModFrmHilDGRng,bb::RngOrdIdl
 
   prec := 0;
   for j in [0 .. Precision(fbb)] do
-    tracej := PositiveElementsOfTrace(bb*D^(-1),j);
+    tracej := PositiveElementsOfTrace(bb * D^(-1), j);
+    norms := [Norm(nu) : nu in tracej];
     coefficient := 0;
-    for nu in tracej do
-      nuRed := FunDomainRep(M, nu: CheckComponent := bb);
-      has_nuRed, coeffNu := IsDefined(Coefficients(fbb), nuRed);
-      if not has_nuRed then
+    exp := j div b;
+    if #norms gt 0 then
+      if (Max(norms) * Norm(D)) gt Precision(fbb) then
         break j;
       end if;
-      coefficient +:= coeffNu;
-      if not AsCoefficients then
-        denom := Lcm(denom, Denominator(coeffNu));
-      end if;
-    end for;
-    exp := j div b;
+      coefficient := &+[Coefficient(fbb, F!nu) : nu in tracej];
+    end if;
+
     if AsCoefficients then
       raw_coeffs[exp] := IsDefined(raw_coeffs, exp) select raw_coeffs[exp] + coefficient else coefficient;
     else
+      denom := LCM(denom, Denominator(coefficient));
       restriction +:= coefficient*q^exp;
     end if;
     prec +:= 1;
@@ -57,8 +56,8 @@ intrinsic RestrictionToDiagonal(f::ModFrmHilDElt,M::ModFrmHilDGRng,bb::RngOrdIdl
     return [IsDefined(raw_coeffs, e) select raw_coeffs[e] else 0 : e in [0 .. max_exp]];
   end if;
 
-  modForms := ModularForms(Gamma0(N),n*k);
-  return modForms!(denom*(restriction +O(q^(prec))));
+  modForms := ModularForms(Gamma0(N),classical_weight);
+  return modForms!(denom*(restriction + O(q^(prec))));
 end intrinsic;
 
 intrinsic PositiveElementsOfTrace(aa::RngOrdFracIdl, t::RngIntElt) -> SeqEnum[RngOrdFracIdl]
