@@ -316,13 +316,16 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, Allo
   return ans;
 end intrinsic;
 
-intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
+intrinsic PossibleGrossenchars(Mk::ModFrmHilD : AllowImprimitive:=false) -> List
   {
     Given a space Mk of HMFs, computes the grossencharacters which induce
     forms in Mk.
 
     The induced forms will span the dihedral forms in Mk if Weight(Mk) is parallel
     and the CM forms otherwise.
+
+    If AllowImprimitive, also returns grossencharacters whose conductor
+    strictly divides Level(Mk); see PossibleGrossencharsOfRelQuadExt.
   }
   ans := [* *];
   N := Level(Mk);
@@ -341,7 +344,7 @@ intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
   k := Weight(Mk);
   chi := Character(Mk);
   for K in Ks do
-    ans cat:= [* psi : psi in PossibleGrossencharsOfRelQuadExt(K, N, k, chi : GRing := GRing) *];
+    ans cat:= [* psi : psi in PossibleGrossencharsOfRelQuadExt(K, N, k, chi : GRing := GRing, AllowImprimitive := AllowImprimitive) *];
   end for;
   return ans;
 end intrinsic;
