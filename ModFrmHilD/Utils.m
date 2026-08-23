@@ -237,7 +237,7 @@ intrinsic Compositum(A::List) -> FldNum
   }
   K := A[1];
   for i in [2 .. #A] do
-    K := Compositum(K, A[i]);
+    K := SafeCompositum(K, A[i]);
   end for;
   return K;
 end intrinsic;
