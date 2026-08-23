@@ -189,24 +189,32 @@ intrinsic HeckeCharWeightFromWeight(K::Fld, F::Fld, k::SeqEnum[RngIntElt]) -> Se
   end if;
 end intrinsic;
 
-intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
+intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, AllowImprimitive:=false) -> List
   {
     inputs:
-      K - relative quadratic extension with base field F and 
+      K - relative quadratic extension with base field F and
         discriminant dividing N
-      N - integral ideal of F 
+      N - integral ideal of F
       k_hmf - weight of HMFs induced by the desired grossencharacters
       chi - (finite order) Hecke character of F of modulus N
+      GRing - optional ModFrmHilDGRng; if given, the (chi-independent) set S
+        of candidate Grossencharacters is cached on it, keyed by (N, k_hmf, K)
+      AllowImprimitive - optional boolean
     returns:
       Grossencharacters of weight k and conductor N/Disc_(K/F) whose
-      restriction to AA_F is chi. 
+      restriction to AA_F is chi.
 
       If the weight is parallel, we remove characters which are invariant
       under conjugation (see the ConjugateIdeal intrinsic) and only
-      return one character from each pair of conjugate ideals. 
+      return one character from each pair of conjugate ideals.
 
-      The grossencharacters returned by this function corresponds to distinct CM 
-      modular forms after (automorphic) induction. 
+      The grossencharacters returned by this function corresponds to distinct CM
+      modular forms after (automorphic) induction.
+
+      If AllowImprimitive, we allow the conductor of the Grossencharacter to 
+      strictly divide N/Disc_(K/F). Taking ThetaSeries of the resulting 
+      characters gives not only the new induced subspace but also the 
+      images under the trivial degeneracy map of old induced subspaces. 
   }
   ZK := Integers(K);
   rel_disc := Discriminant(ZK);
@@ -219,20 +227,44 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
   k := HeckeCharWeightFromWeight(K_abs, BaseField(K), k_hmf);
   X := cHMFGrossencharsTorsor(K_abs, k, M);
 
-  if IsFiniteOrder(X) then
-    // we define grossencharacters over absolute fields
-    // so we need to pass in the base field
-    F := BaseField(K);
-    S := PrunedGrossencharsSet(X, F);
+  // S doesn't depend on chi, only on (N, k_hmf, K) -- computing it is the
+  // expensive step (O(size of the ray class group of K_abs)), so cache it
+  // on GRing when available rather than recomputing per character.
+  use_cache := GRing cmpne false;
+  k_key := Sprint(k_hmf);
+  if use_cache and IsDefined(GRing`GrossencharsSetCache, N)
+      and IsDefined(GRing`GrossencharsSetCache[N], k_key)
+      and IsDefined(GRing`GrossencharsSetCache[N][k_key], K) then
+    S := GRing`GrossencharsSetCache[N][k_key][K];
   else
-    S := HMFGrossencharsTorsorSet(X);
+    if IsFiniteOrder(X) then
+      // we define grossencharacters over absolute fields
+      // so we need to pass in the base field
+      F := BaseField(K);
+      S := PrunedGrossencharsSet(X, F);
+    else
+      S := HMFGrossencharsTorsorSet(X);
+    end if;
+
+    if use_cache then
+      if not IsDefined(GRing`GrossencharsSetCache, N) then
+        GRing`GrossencharsSetCache[N] := AssociativeArray();
+      end if;
+      if not IsDefined(GRing`GrossencharsSetCache[N], k_key) then
+        GRing`GrossencharsSetCache[N][k_key] := AssociativeArray();
+      end if;
+      GRing`GrossencharsSetCache[N][k_key][K] := S;
+    end if;
   end if;
 
   GF, mF := RayClassGroup(N, [1 .. Degree(BaseField(K))]);
   ans := [* *];
   for psi in S do
     N_psi := ZK!!(Conductor(psi));
-    if Norm(N_psi) * rel_disc eq N then
+    valid_level := (not AllowImprimitive) select \
+                 (Norm(N_psi) * rel_disc eq N) else \
+                 (IsIntegral(N / (Norm(N_psi) * rel_disc)));
+    if valid_level then
       flag := true;
       for g in Generators(GF) do
         I := mF(g);
@@ -271,7 +303,13 @@ intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
   }
   ans := [* *];
   N := Level(Mk);
-  Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
+  GRing := Parent(Mk);
+  if IsDefined(GRing`QuadExtWithConductorCache, N) then
+    Ks := GRing`QuadExtWithConductorCache[N];
+  else
+    Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
+    GRing`QuadExtWithConductorCache[N] := Ks;
+  end if;
 
   if not (IsParallel(Weight(Mk)) and Weight(Mk)[1] eq 1) then
     Ks := [K : K in Ks | IsTotallyComplex(K)];
@@ -280,7 +318,7 @@ intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
   k := Weight(Mk);
   chi := Character(Mk);
   for K in Ks do
-    ans cat:= [* psi : psi in PossibleGrossencharsOfRelQuadExt(K, N, k, chi) *];
+    ans cat:= [* psi : psi in PossibleGrossencharsOfRelQuadExt(K, N, k, chi : GRing := GRing) *];
   end for;
   return ans;
 end intrinsic;
