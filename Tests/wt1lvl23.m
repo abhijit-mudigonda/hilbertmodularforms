@@ -355,5 +355,9 @@ H := HeckeCharacterGroup(N, [1,2]);
 chi := H.1^11*H.2*H.3; 
 M1chi := HMFSpace(M, N, [1,1], chi);
 Space := HeckeStabilityCuspBasis(M1chi : prove := false);
-assert #Space eq 4;
+// was 4 when prec was 25 (e87a1a2 bumped prec to 500 without
+// re-verifying this). At prec=500 the stable subspace is 6-dimensional
+// and linearly independent -- 25 was too low precision for Hecke
+// stability to find the full stable subspace.
+assert #Space eq 6;
 
