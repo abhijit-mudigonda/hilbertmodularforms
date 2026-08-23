@@ -73,32 +73,36 @@ intrinsic ConjugateIdeal(K::Fld, F::Fld, N::RngOrdIdl) -> RngOrdIdl
   return Integers(K)!!(ideal<ZK_rel | conj_gens>);
 end intrinsic;
 
-intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld) -> SetEnum
+intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilter:=false) -> SetEnum
   {
     input:
       X - A HMFGrossencharTorsor of finite order characters
         over a field K with modulus N.
       F - A number field such that K/F is a quadratic extension
         and N is stable under the Gal(K/F) action
+      RayClassFilter - optional, passed through to HMFGrossencharsTorsorSet;
+        see its documentation.
     returns:
       The set of characters in chi which are not self-conjugate
-      under the K/F action, up to conjugation. 
+      under the K/F action, up to conjugation.
   }
   require IsFiniteOrder(X) : "Cannot compute conjugate pairs of\
       infinite order Grossencharacters";
   K := X`BaseField;
   require IsSubfield(F, K) : "F is not a subfield of K";
 
-  S := HMFGrossencharsTorsorSet(X);
+  N_f, N_oo := Modulus(X);
+  H := HeckeCharacterGroup(N_f, N_oo);
 
-  // If the order of S is 1 then the ray class group is trivial
-  // and the trivial character is self-conjugate
-  if #S eq 1 then
+  // If H is trivial then the ray class group is trivial and the trivial
+  // character is self-conjugate. Checked against H, not S below, since
+  // #S eq 1 can also happen from filtering down to one survivor.
+  if #H eq 1 then
     return {};
   end if;
 
-  N_f, N_oo := Modulus(X); 
-  H := HeckeCharacterGroup(N_f, N_oo);
+  S := HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter);
+
   G, mp := RayClassGroup(N_f, N_oo);
   gens := Generators(G);
   idl_gens := [mp(g) : g in gens];
