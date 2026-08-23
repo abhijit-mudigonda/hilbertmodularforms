@@ -341,6 +341,28 @@ intrinsic IsStrongCoercible(L::Fld, x::.) -> BoolElt, FldElt
   return false, _;
 end intrinsic;
 
+intrinsic SafeCompositum(K::Fld, L::Fld) -> Fld
+  {
+    Compositum(K, L), routing around a Magma bug (Magma-Maths/Magma#55,
+    RepThry/ModGrp/Reduce-NonCyclic.m:231, "Invalid embedding") that some
+    FldCyc/FldNum pairs trigger. On failure, retries with one side rebuilt
+    as a plain NumberField from its defining polynomial (same field, fresh
+    object) -- empirically this dodges the bug, though rebuilding both
+    sides at once does not, so we only rebuild one at a time.
+  }
+  if K eq Rationals() then return L; end if;
+  if L eq Rationals() then return K; end if;
+  try
+    return Compositum(K, L);
+  catch e
+    try
+      return Compositum(NumberField(DefiningPolynomial(K)), L);
+    catch e2
+      return Compositum(K, NumberField(DefiningPolynomial(L)));
+    end try;
+  end try;
+end intrinsic;
+
 intrinsic StrongCoerce(L::Fld, x::RngElt) -> FldElt
   {
     input:
@@ -389,7 +411,7 @@ intrinsic ListToStrongCoercedSeq(A::List) -> SeqEnum
   for a in A do
     // in case a is a RngElt instead of a FldElt
     K := NumberField(Parent(a));
-    L := (K eq L) select L else Compositum(L, K);
+    L := (K eq L) select L else SafeCompositum(L, K);
   end for;
 
   B := [];
@@ -420,7 +442,7 @@ intrinsic StrongMultiply(A::List : K:=false) -> FldElt
   if K cmpeq false then
     K := RationalsAsNumberField();
     for x in A do
-      K := Compositum(K, NumberField(Parent(x)));
+      K := SafeCompositum(K, NumberField(Parent(x)));
     end for;
   end if;
 
@@ -453,7 +475,7 @@ intrinsic StrongAdd(A::List : K:=false) -> FldElt
   if K cmpeq false then
     K := RationalsAsNumberField();
     for x in A do
-      K := Compositum(K, NumberField(Parent(x)));
+      K := SafeCompositum(K, NumberField(Parent(x)));
     end for;
   end if;
 
@@ -476,7 +498,7 @@ intrinsic StrongEquality(x::Any, y::Any : K:=false) -> BoolElt
   end if;
 
   if K cmpeq false then
-    K := Compositum(NumberField(Parent(x)), NumberField(Parent(y)));
+    K := SafeCompositum(NumberField(Parent(x)), NumberField(Parent(y)));
   end if;
 
   return StrongCoerce(K, x) eq StrongCoerce(K, y);

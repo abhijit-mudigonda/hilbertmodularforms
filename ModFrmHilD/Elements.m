@@ -450,7 +450,7 @@ intrinsic ChangeToCompositumOfCoefficientFields(list::SeqEnum[ModFrmHilDElt]) ->
   K := NumberField(CoefficientRing(list[1]));
   for f in list do
     if K ne NumberField(CoefficientRing(f)) then
-      K := Compositum(K, NumberField(CoefficientRing(f)));
+      K := SafeCompositum(K, NumberField(CoefficientRing(f)));
     end if;
   end for;
   return  [ChangeCoefficientRing(f, K) : f in list];
@@ -605,7 +605,7 @@ intrinsic IncreasePrecisionWithBasis(g::ModFrmHilDElt, basis::SeqEnum[ModFrmHilD
     elif IsSubfield(K, L) then
       K := L;
     else
-      K := Compositum(L, K);
+      K := SafeCompositum(L, K);
     end if;
     basis := [ChangeCoefficientRing(f, K) : f in basis];
     

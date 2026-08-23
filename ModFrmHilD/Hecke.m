@@ -131,7 +131,7 @@ intrinsic Eigenbasis(M::ModFrmHilD, basis::SeqEnum[ModFrmHilDElt] : P := 12, cop
   elif IsSubfield(L, F) then
     K := F;
   else
-    K := Compositum(F, L);
+    K := SafeCompositum(F, L);
   end if;
    
   basis := [ChangeCoefficientRing(f, K) : f in basis];

@@ -639,7 +639,7 @@ intrinsic '*'(f :: ModFrmHilDEltComp, g :: ModFrmHilDEltComp) -> ModFrmHilDEltCo
     Rf := CoefficientRing(f);
     Rg := CoefficientRing(g);
     if Rf ne Rg then
-        Rfg := Compositum(Rf, Rg);
+        Rfg := SafeCompositum(Rf, Rg);
         return ChangeRing(f, Rfg) * ChangeRing(g, Rfg);
     end if;
 
@@ -719,7 +719,7 @@ intrinsic '/'(f :: ModFrmHilDEltComp, g :: ModFrmHilDEltComp) -> ModFrmHilDEltCo
     Rf := CoefficientRing(f);
     Rg := CoefficientRing(g);
     if Rf ne Rg then
-        Rfg := Compositum(Rf, Rg);
+        Rfg := SafeCompositum(Rf, Rg);
         return ChangeRing(f, Rfg) / ChangeRing(g, Rfg);
     end if;
 
