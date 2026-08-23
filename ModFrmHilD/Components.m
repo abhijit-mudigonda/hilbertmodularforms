@@ -420,10 +420,16 @@ intrinsic HMFExpansionRing(M::ModFrmHilDGRng, K::Rng :
       end if;
     end if;
     if not unique then // otherwise we already have R
-      b, R := IsDefined(M`RngMPol[t], DefiningPolynomial(K));
+      // Key by K itself (not DefiningPolynomial(K)): two independently
+      // constructed but isomorphic copies of the same field (e.g. from
+      // separate ThetaSeries calls) share a defining polynomial but are
+      // distinct objects. Keying on the polynomial would return a ring
+      // built over the wrong field object, silently corrupting whichever
+      // computation runs second in a session that reuses this M.
+      b, R := IsDefined(M`RngMPol[t], K);
       if not b then
         R<[q]> := PolynomialRing(K, n);
-        M`RngMPol[t][DefiningPolynomial(K)] := R;
+        M`RngMPol[t][K] := R;
       end if;
     end if;
   else
