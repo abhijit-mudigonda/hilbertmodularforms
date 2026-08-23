@@ -231,37 +231,49 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, Allo
   k := HeckeCharWeightFromWeight(K_abs, BaseField(K), k_hmf);
   X := cHMFGrossencharsTorsor(K_abs, k, M);
 
+  GF, mF := RayClassGroup(N, [1 .. Degree(BaseField(K))]);
+
   // S doesn't depend on chi, only on (N, k_hmf, K) -- computing it is the
   // expensive step (O(size of the ray class group of K_abs)), so cache it
-  // on GRing when available rather than recomputing per character.
-  use_cache := GRing cmpne false;
-  k_key := Sprint(k_hmf);
-  if use_cache and IsDefined(GRing`GrossencharsSetCache, N)
-      and IsDefined(GRing`GrossencharsSetCache[N], k_key)
-      and IsDefined(GRing`GrossencharsSetCache[N][k_key], K) then
-    S := GRing`GrossencharsSetCache[N][k_key][K];
+  // on GRing when available rather than recomputing per character. In the
+  // finite order case, filtering via RayClassFilter is fast enough on its
+  // own (see PrunedGrossencharsSet/HMFGrossencharsTorsorSet) that it isn't
+  // worth caching S separately per chi, so we skip the GRing cache there.
+  if IsFiniteOrder(X) then
+    // we define grossencharacters over absolute fields
+    // so we need to pass in the base field
+    F := BaseField(K);
+    // Evaluate(cHMFGrossenchar(X,psi), I) reduces to psi(I)^-1 (raw,
+    // native GrpHeckeElt evaluation) when IsFiniteOrder(X), since
+    // MarkedCharClassRepEvals and EvaluateNoncompactInfinityType are both
+    // trivial in that case (see HMFGrossenchar.m). Solving
+    // chi(I)*Norm(I)^(k-1) eq psi(I)^-1*QuadraticCharacter(I,K) for
+    // psi(I) gives the target values below.
+    ray_class_filter := [<Integers(K_abs)!!mF(g),
+        QuadraticCharacter(mF(g), K) * chi(mF(g))^-1 * Norm(mF(g))^-(Max(k_hmf) - 1)>
+        : g in Generators(GF)];
+    S := PrunedGrossencharsSet(X, F : RayClassFilter:=ray_class_filter);
   else
-    if IsFiniteOrder(X) then
-      // we define grossencharacters over absolute fields
-      // so we need to pass in the base field
-      F := BaseField(K);
-      S := PrunedGrossencharsSet(X, F);
+    use_cache := GRing cmpne false;
+    k_key := Sprint(k_hmf);
+    if use_cache and IsDefined(GRing`GrossencharsSetCache, N)
+        and IsDefined(GRing`GrossencharsSetCache[N], k_key)
+        and IsDefined(GRing`GrossencharsSetCache[N][k_key], K) then
+      S := GRing`GrossencharsSetCache[N][k_key][K];
     else
       S := HMFGrossencharsTorsorSet(X);
-    end if;
-
-    if use_cache then
-      if not IsDefined(GRing`GrossencharsSetCache, N) then
-        GRing`GrossencharsSetCache[N] := AssociativeArray();
+      if use_cache then
+        if not IsDefined(GRing`GrossencharsSetCache, N) then
+          GRing`GrossencharsSetCache[N] := AssociativeArray();
+        end if;
+        if not IsDefined(GRing`GrossencharsSetCache[N], k_key) then
+          GRing`GrossencharsSetCache[N][k_key] := AssociativeArray();
+        end if;
+        GRing`GrossencharsSetCache[N][k_key][K] := S;
       end if;
-      if not IsDefined(GRing`GrossencharsSetCache[N], k_key) then
-        GRing`GrossencharsSetCache[N][k_key] := AssociativeArray();
-      end if;
-      GRing`GrossencharsSetCache[N][k_key][K] := S;
     end if;
   end if;
 
-  GF, mF := RayClassGroup(N, [1 .. Degree(BaseField(K))]);
   ans := [* *];
   for psi in S do
     N_psi := ZK!!(Conductor(psi));
@@ -289,7 +301,14 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, Allo
             Evaluate(psi, Integers(K_abs)!!(I) : gen:=gen, nonpar_hack:=nonpar_hack) * QuadraticCharacter(I, K)
             );
       end for;
-      if flag then
+      // S was already filtered by RayClassFilter above in the finite
+      // order case, so this recheck should always agree; keep it as an
+      // assert-based safety net rather than dropping it, since S is now
+      // small this costs nothing.
+      if IsFiniteOrder(X) then
+        assert flag;
+        Append(~ans, psi);
+      elif flag then
         Append(~ans, psi);
       end if;
     end if;
