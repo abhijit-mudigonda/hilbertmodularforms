@@ -204,9 +204,9 @@ end function;
 // ---------------- caches, keyed by string ----------------
 // Magma functions cannot silently mutate an outer-scope variable, so the
 // cache is threaded through explicitly as a reference (~) parameter.
-classical_cache := AssociativeArray(); // key -> <nf, dim>
+classical_cache := AssociativeArray(); // key -> <nf, dim, Mcl>
 
-procedure GetClassicalSpace(L, order, char_idx_in_evens, ~classical_cache, ~nf_out, ~dim_out)
+procedure GetClassicalSpace(L, order, char_idx_in_evens, ~classical_cache, ~nf_out, ~dim_out, ~Mcl_out)
   // order eq 1 means trivial. Otherwise char_idx_in_evens indexes into
   // the list of even Dirichlet characters mod L of order exactly `order`.
   // Magma only allows ~ (reference) parameters on procedures, not
@@ -216,6 +216,7 @@ procedure GetClassicalSpace(L, order, char_idx_in_evens, ~classical_cache, ~nf_o
   if IsDefined(classical_cache, key) then
     nf_out := classical_cache[key][1];
     dim_out := classical_cache[key][2];
+    Mcl_out := classical_cache[key][3];
     return;
   end if;
   if order eq 1 then
@@ -227,7 +228,8 @@ procedure GetClassicalSpace(L, order, char_idx_in_evens, ~classical_cache, ~nf_o
   end if;
   nf_out := Newforms(Mcl);
   dim_out := Dimension(Mcl);
-  classical_cache[key] := <nf_out, dim_out>;
+  Mcl_out := Mcl;
+  classical_cache[key] := <nf_out, dim_out, Mcl_out>;
 end procedure;
 
 function NumEvenCharsOfOrder(L, order)
@@ -238,9 +240,26 @@ end function;
 
 // ---------------- identification core ----------------
 
-function AnalyzeMembership(nf, v, NMAX)
-  // Returns: ok, dim, num_orbits, contributing_orbit_idx (0 if multiple/none),
-  // deg_K, minpoly_K_string, num_aut_K, c_elt, minpoly_c_string, deg_c, trace_c
+function AnalyzeMembership(nf, Mcl, fulldim, v, NMAX)
+  // Returns: ok, dim, num_orbits, contributing_orbit_idx (0 if multiple/none/oldform),
+  // deg_K, minpoly_K_string, num_aut_K, c_elt, minpoly_c_string, deg_c, trace_c,
+  // contrib_string, via_oldforms
+  //
+  // fulldim is Dimension(Mcl) -- the TRUE dimension of the ambient cuspidal
+  // space (newforms + oldforms lifted from divisors of L with a compatible
+  // character), passed in from the caller (already computed by
+  // GetClassicalSpace) rather than recomputed here. This is the dimension
+  // that must be compared against NMAX to decide inconclusive-vs-not: the
+  // sum of new-orbit degrees alone UNDERCOUNTS whenever L is composite and
+  // the classical space contains oldforms, which would silently under-set
+  // the precision safety margin.
+  if fulldim eq 0 or NMAX le fulldim then
+    return false, fulldim, #nf, 0, 0, "", 0, "", "", 0, "", false;
+  end if;
+
+  // --- first attempt: match against newform orbits only (and combinations
+  // thereof) -- this is the case that admits a clean single-generator
+  // Tr_{K/Q}(c*g) (or explicit multi-orbit) description.
   cols := [];
   for i in [1..#nf] do
     f := nf[i][1];
@@ -255,52 +274,65 @@ function AnalyzeMembership(nf, v, NMAX)
       end for;
     end if;
   end for;
-  dim := #cols;
-  if dim eq 0 or NMAX le dim then
-    return false, dim, #nf, 0, 0, "", 0, "", "", 0, "";
-  end if;
-  Tfull := Matrix(Rationals(), cols);
-  ok, csol := IsConsistent(Tfull, Vector(Rationals(), v));
-  if not ok then
-    return false, dim, #nf, 0, 0, "", 0, "", "", 0, "";
-  end if;
-  // which orbit(s) contribute
-  pos := 1;
-  contributing := [];
-  orbit_c := AssociativeArray();
-  for i in [1..#nf] do
-    K := Parent(Coefficient(nf[i][1],1));
-    d := Degree(K);
-    block := [csol[pos+j] : j in [0..d-1]];
-    if block ne [Rationals()|0 : x in block] then
-      Append(~contributing, i);
-      orbit_c[i] := <K, block, d>;
+  newdim := #cols;
+  if newdim gt 0 then
+    Tfull := Matrix(Rationals(), cols);
+    ok, csol := IsConsistent(Tfull, Vector(Rationals(), v));
+    if ok then
+      // which orbit(s) contribute
+      pos := 1;
+      contributing := [];
+      orbit_c := AssociativeArray();
+      for i in [1..#nf] do
+        K := Parent(Coefficient(nf[i][1],1));
+        d := Degree(K);
+        block := [csol[pos+j] : j in [0..d-1]];
+        if block ne [Rationals()|0 : x in block] then
+          Append(~contributing, i);
+          orbit_c[i] := <K, block, d>;
+        end if;
+        pos +:= d;
+      end for;
+      if #contributing ne 1 then
+        // matches only as a combination across multiple orbits; still log
+        // it but without a single clean (K, c)
+        return true, fulldim, #nf, 0, 0, "", 0, "", "", 0, SerList(contributing), false;
+      end if;
+      orbit_idx := contributing[1];
+      K, block, d := Explode(orbit_c[orbit_idx]);
+      if d eq 1 then
+        c := block[1];
+        deg_c := 1;
+        minpoly_c_str := Sprint(MinimalPolynomial(c));
+        trace_c := c;
+        naut := 1;
+      else
+        c := &+[block[j+1]*K.1^j : j in [0..d-1]];
+        mpc := MinimalPolynomial(c);
+        deg_c := Degree(mpc);
+        minpoly_c_str := Sprint(mpc);
+        trace_c := Trace(c);
+        naut := #Automorphisms(K);
+      end if;
+      minpoly_K_str := (d eq 1) select "x" else Sprint(MinimalPolynomial(K.1));
+      return true, fulldim, #nf, orbit_idx, d, minpoly_K_str, naut, minpoly_c_str, deg_c, trace_c, "", false;
     end if;
-    pos +:= d;
-  end for;
-  if #contributing ne 1 then
-    // matches only as a combination across multiple orbits; still log it
-    // but without a single clean (K, c)
-    return true, dim, #nf, 0, 0, "", 0, "", "", 0, SerList(contributing);
   end if;
-  orbit_idx := contributing[1];
-  K, block, d := Explode(orbit_c[orbit_idx]);
-  if d eq 1 then
-    c := block[1];
-    deg_c := 1;
-    minpoly_c_str := Sprint(MinimalPolynomial(c));
-    trace_c := c;
-    naut := 1;
-  else
-    c := &+[block[j+1]*K.1^j : j in [0..d-1]];
-    mpc := MinimalPolynomial(c);
-    deg_c := Degree(mpc);
-    minpoly_c_str := Sprint(mpc);
-    trace_c := Trace(c);
-    naut := #Automorphisms(K);
+
+  // --- fallback: newform-only span didn't explain v (or L has no new
+  // eigenforms of this character at all, e.g. purely old level), but
+  // fulldim < NMAX so there's still enough precision to test the FULL
+  // space, oldforms included. This does not give a clean single-generator
+  // attribution, but it does correctly detect membership rather than
+  // silently missing it.
+  B := Basis(Mcl);
+  colsB := [[Rationals()!Coefficient(bfrm, n) : n in [1..NMAX]] : bfrm in B];
+  TB := Matrix(Rationals(), colsB);
+  okB := IsConsistent(TB, Vector(Rationals(), v));
+  if okB then
+    return true, fulldim, #nf, 0, 0, "", 0, "", "", 0, "", true;
   end if;
-  minpoly_K_str := (d eq 1) select "x" else Sprint(MinimalPolynomial(K.1));
-  return true, dim, #nf, orbit_idx, d, minpoly_K_str, naut, minpoly_c_str, deg_c, trace_c, "";
+  return false, fulldim, #nf, 0, 0, "", 0, "", "", 0, "", false;
 end function;
 
 function DivisorsOf(m)
@@ -324,9 +356,9 @@ procedure TryIdentify(L, chi_order, v, NMAX, ~classical_cache,
         deg_K:=0; minpoly_c:=""; contrib:=""; deg_c:=0; trace_c:=0; num_aut_K:=0;
         return;
       end if;
-      GetClassicalSpace(L, ord, cidx, ~classical_cache, ~nf, ~dim);
-      ok, dimr, norb, orbit_idx, degK, minpolyK, naut, minpolyc, degc, tracec, contrib_local :=
-        AnalyzeMembership(nf, v, NMAX);
+      GetClassicalSpace(L, ord, cidx, ~classical_cache, ~nf, ~dim, ~Mcl);
+      ok, dimr, norb, orbit_idx, degK, minpolyK, naut, minpolyc, degc, tracec, contrib_local, via_oldforms :=
+        AnalyzeMembership(nf, Mcl, dim, v, NMAX);
       if NMAX le dimr then
         best_inconclusive := true;
       end if;
@@ -335,6 +367,11 @@ procedure TryIdentify(L, chi_order, v, NMAX, ~classical_cache,
           status:="matched"; neb_order:=ord; neb_char_idx:=cidx; classical_dim:=dimr;
           num_orbits:=norb; matched_orbit_idx:=orbit_idx; minpoly_K:=minpolyK; deg_K:=degK;
           minpoly_c:=minpolyc; contrib:=""; deg_c:=degc; trace_c:=tracec; num_aut_K:=naut;
+          return;
+        elif via_oldforms then
+          status:="matched_needs_oldforms"; neb_order:=ord; neb_char_idx:=cidx; classical_dim:=dimr;
+          num_orbits:=norb; matched_orbit_idx:=0; minpoly_K:=""; deg_K:=0; minpoly_c:="";
+          contrib:=""; deg_c:=0; trace_c:=0; num_aut_K:=0;
           return;
         else
           status:="matched_multi_orbit"; neb_order:=ord; neb_char_idx:=cidx; classical_dim:=dimr;
@@ -577,7 +614,7 @@ procedure ProcessIdeal(N, level_label, chis, GRing, bbs, field_str, ~classical_c
         row[C_M_CLASSNUM] := S(M_classnum);
 
         if status eq "matched" then
-          GetClassicalSpace(classical_level, neb_order, neb_char_idx, ~classical_cache, ~nf_lookup, ~dim_lookup);
+          GetClassicalSpace(classical_level, neb_order, neb_char_idx, ~classical_cache, ~nf_lookup, ~dim_lookup, ~Mcl_lookup);
           g := nf_lookup[matched_orbit_idx][1];
           Kg := Parent(Coefficient(g,1));
           small_primes := [p : p in PrimesUpTo(40) | classical_level mod p ne 0];
