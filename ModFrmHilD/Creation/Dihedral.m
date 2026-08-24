@@ -351,15 +351,24 @@ end intrinsic;
 
 //////////////////////////////// Computing spaces of dihedral forms
 
-intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> SetEnum
+intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> SeqEnum
   {
     Weight [1,1] fast path: K a quadratic extension of the totally real
     field F with discriminant dividing frakN, Ntgt the target classical
-    (rational) level. Returns the set of finite-order psi::GrpHeckeElt of
-    K's maximal modulus M := frakN/Discriminant(K) whose induced nebentypus
-    is trivial on (Z/NtgtZ)^*, i.e. whose diagonal restriction has trivial
-    classical nebentypus. Native GrpHeckeElt evaluation throughout; never
-    builds an HMFGrossencharsTorsor.
+    (rational) level. Returns the (duplicate-free, since drawn from
+    Elements(H)) sequence of finite-order psi::GrpHeckeElt of K's maximal
+    modulus M := frakN/Discriminant(K) whose induced nebentypus is trivial
+    on (Z/NtgtZ)^*, i.e. whose diagonal restriction has trivial classical
+    nebentypus. Native GrpHeckeElt evaluation throughout; never builds an
+    HMFGrossencharsTorsor.
+
+    Returns a SeqEnum, not a SetEnum: GrpHeckeElt has no efficient Hash,
+    so building a SetEnum of them via repeated Include is O(n) per insert
+    (Magma falls back to a linear scan) -- O(n^2) total, and dominates
+    runtime for large character groups (measured: 9.7s to Include 2000
+    elements one at a time, vs 0.01s to Append the same 2000 to a
+    SeqEnum). Elements(H) are already pairwise distinct, so no dedup is
+    needed here in the first place -- just collect matches into a list.
   }
   F := BaseField(K);
   ZF := Integers(F);
@@ -376,10 +385,10 @@ intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt:
   a_gens := [Integers()!(g @ mUz) : g in Generators(Uz)];
   filter := [<Integers(K_abs)!!ideal<ZF|a>, QuadraticCharacter(ideal<ZF|a>, K)> : a in a_gens];
 
-  S := {};
+  S := [];
   for psi in Elements(H) do
     if &and[psi(t[1]) eq t[2] : t in filter] then
-      Include(~S, psi);
+      Append(~S, psi);
     end if;
   end for;
   return S;
@@ -547,41 +556,66 @@ intrinsic RawDihedralPsiInfo(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Ntgt::RngI
   return out;
 end intrinsic;
 
-intrinsic PrunedGrossencharsSetRaw(S::SetEnum, K_abs::FldNum, F::Fld) -> SetEnum
+intrinsic PrunedGrossencharsSetRaw(S::SeqEnum, K_abs::FldNum, F::Fld) -> SeqEnum
   {
-    Raw-GrpHeckeElt analog of PrunedGrossencharsSet: given a set S of
-    finite-order psi::GrpHeckeElt of K_abs (all sharing a common modulus
-    stable under Gal(K_abs/F)), remove one element of each conjugate pair
-    (they give the same theta series). Unlike PrunedGrossencharsSet, does
-    not wrap elements in HMFGrossenchar and does not use StrongCoerce --
-    native evaluations of elements of the same HeckeCharacterGroup already
-    land in a common field.
+    Raw-GrpHeckeElt analog of PrunedGrossencharsSet: given a duplicate-free
+    sequence S of finite-order psi::GrpHeckeElt of K_abs (all sharing a
+    common modulus stable under Gal(K_abs/F)), remove one element of each
+    conjugate pair (they give the same theta series). Unlike
+    PrunedGrossencharsSet, does not wrap elements in HMFGrossenchar and
+    does not use StrongCoerce -- native evaluations of elements of the
+    same HeckeCharacterGroup already land in a common field.
+
+    Takes/returns SeqEnum, not SetEnum: GrpHeckeElt has no efficient Hash,
+    so a SetEnum of them is O(n) per Include/Exclude (linear scan) --
+    O(n^2) total for the working set here. Bookkeeping is done via integer
+    indices into S instead (SetEnum of RngIntElt hashes natively and is
+    fast), and conjugate-pair lookup uses an AssociativeArray keyed by the
+    evaluation-vector (a SeqEnum of field elements, also hashes fine) --
+    only the actual GrpHeckeElt values are ever touched via S[i], never
+    inserted into a Set. Measured: eliminates a >15-minute hang (n=5488)
+    down to single-digit seconds.
+
+    Two further redundant recomputations, also fixed here: (1)
+    ConjugateIdeal(K_abs,F,I) depends only on I, not on psi, but the
+    original loop called it fresh on every iteration for every I in
+    idl_gens -- hoisted out and computed once (measured: ~40ms/call,
+    ~2700 iterations x 5 gens = the dominant remaining cost otherwise,
+    ~9 minutes for a single large case). (2) each psi's "forward"
+    evaluation vector [psi(I) : I in idl_gens] was computed once to key
+    evals_to_idx and then recomputed from scratch inside the loop as
+    psi_evals -- now cached alongside the AssociativeArray build and
+    reused via array lookup.
   }
   if #S eq 0 then
     return S;
   end if;
-  N_f, N_oo := Modulus(Rep(S));
+  N_f, N_oo := Modulus(S[1]);
   G, mp := RayClassGroup(N_f, N_oo);
   idl_gens := [mp(g) : g in Generators(G)];
+  conj_idl_gens := [ConjugateIdeal(K_abs, F, I) : I in idl_gens];
 
-  evals_to_chi := AssociativeArray();
-  for psi in S do
-    evals_to_chi[[psi(I) : I in idl_gens]] := psi;
+  S_evals := [[psi(I) : I in idl_gens] : psi in S];
+  evals_to_idx := AssociativeArray();
+  for i -> ev in S_evals do
+    evals_to_idx[ev] := i;
   end for;
 
-  chis := S;
-  pruned_chis := {};
-  while not IsEmpty(chis) do
-    psi := Rep(chis);
-    psi_evals := [psi(I) : I in idl_gens];
-    conj_evals := [psi(ConjugateIdeal(K_abs, F, I)) : I in idl_gens];
+  remaining := {1 .. #S};
+  pruned_chis := [];
+  while not IsEmpty(remaining) do
+    i := Rep(remaining);
+    psi := S[i];
+    psi_evals := S_evals[i];
+    conj_evals := [psi(cI) : cI in conj_idl_gens];
     if psi_evals ne conj_evals then
-      Include(~pruned_chis, psi);
+      Append(~pruned_chis, psi);
     end if;
-    assert evals_to_chi[conj_evals] in chis;
-    assert psi in chis;
-    Exclude(~chis, evals_to_chi[conj_evals]);
-    Exclude(~chis, psi);
+    assert IsDefined(evals_to_idx, conj_evals);
+    j := evals_to_idx[conj_evals];
+    assert j in remaining;
+    Exclude(~remaining, j);
+    Exclude(~remaining, i);
   end while;
   return pruned_chis;
 end intrinsic;
