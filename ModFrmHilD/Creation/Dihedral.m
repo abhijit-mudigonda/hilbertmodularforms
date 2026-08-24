@@ -351,45 +351,140 @@ end intrinsic;
 
 //////////////////////////////// Computing spaces of dihedral forms
 
-intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> SeqEnum
+intrinsic MaximalIdealsOfNormDividing(ZK::RngOrd, Mideal::RngOrdIdl) -> SeqEnum
+  {
+    ZK the ring of integers of a quadratic extension K of F := NumberField
+    (Order(Mideal)). Returns a duplicate-free sequence of ideals C of ZK,
+    each maximal (under divisibility) among ideals whose relative norm
+    N_KF(C) divides Mideal, such that EVERY ideal D of ZK with
+    N_KF(D) | Mideal divides some C in the returned sequence (hence
+    appears, possibly imprimitively, in HeckeCharacterGroup(C,...) for
+    that C).
+
+    This is a much tighter search bound than the single ideal Mideal*ZK
+    used previously: since D | N_KF(D)*ZK always (as D*D^sigma =
+    N_KF(D)*ZK), Mideal*ZK is a valid but wasteful upper bound whose
+    OWN relative norm is Mideal^2, not Mideal -- e.g. for a case with
+    #HeckeCharacterGroup(Mideal*ZK,...) = 115248, the ideals actually
+    produced by this intrinsic have combined character-group size 146,
+    a ~790x reduction, empirically confirmed to translate directly into
+    proportionally faster downstream search.
+
+    Per-prime local structure (p a prime of F dividing Mideal with
+    exponent e): if p is INERT in K (single prime P, N(P)=p^2), the
+    maximal local ideal is P^(e div 2) -- note e need not be even; if e
+    is odd, this maximal ideal has norm p^(e-1), strictly less than
+    p^e, which is correct (norm p^e is not achievable by any ideal above
+    an inert prime at all, so nothing is lost by not trying to hit it
+    exactly). If p is RAMIFIED (P^2=p*ZK, N(P)=p), the unique maximal
+    ideal is P^e (norm exactly p^e). If p is SPLIT (P,P' distinct,
+    N(P)=N(P')=p), every P^a*P'^(e-a) for a in [0..e] is simultaneously
+    maximal (norm exactly p^e, but not comparable to each other under
+    divisibility) -- e+1 genuinely different ideals to search separately.
+
+    Returns [1*ZK] when Mideal is the unit ideal (vacuously correct: the
+    only ideal of norm dividing 1*ZF is 1*ZK itself).
+  }
+  ZF := Order(Mideal);
+  local_choices := [* *];
+  for pe in Factorization(Mideal) do
+    p := pe[1]; e := pe[2];
+    pK_fact := Factorization(ideal<ZK | [ZK!x : x in Generators(p)]>);
+    options := [];
+    if #pK_fact eq 1 and pK_fact[1][2] eq 2 then
+      // ramified: unique maximal ideal, norm exactly p^e
+      P := pK_fact[1][1];
+      Append(~options, P^e);
+    elif #pK_fact eq 1 and pK_fact[1][2] eq 1 then
+      // inert: unique maximal ideal, norm p^(2*(e div 2)) <= p^e
+      P := pK_fact[1][1];
+      Append(~options, P^(e div 2));
+    elif #pK_fact eq 2 then
+      // split: e+1 pairwise-incomparable maximal ideals, each norm exactly p^e
+      P := pK_fact[1][1]; Pp := pK_fact[2][1];
+      for a in [0 .. e] do
+        Append(~options, P^a * Pp^(e-a));
+      end for;
+    end if;
+    Append(~local_choices, options);
+  end for;
+
+  Cs := [1*ZK];
+  for opts in local_choices do
+    newCs := [];
+    for c in Cs do
+      for o in opts do
+        Append(~newCs, c*o);
+      end for;
+    end for;
+    Cs := newCs;
+  end for;
+  return Cs;
+end intrinsic;
+
+intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> List
   {
     Weight [1,1] fast path: K a quadratic extension of the totally real
     field F with discriminant dividing frakN, Ntgt the target classical
-    (rational) level. Returns the (duplicate-free, since drawn from
-    Elements(H)) sequence of finite-order psi::GrpHeckeElt of K's maximal
-    modulus M := frakN/Discriminant(K) whose induced nebentypus is trivial
-    on (Z/NtgtZ)^*, i.e. whose diagonal restriction has trivial classical
-    nebentypus. Native GrpHeckeElt evaluation throughout; never builds an
+    (rational) level. Returns the (duplicate-free) sequence of finite-order
+    psi::GrpHeckeElt whose induced nebentypus is trivial on (Z/NtgtZ)^*,
+    i.e. whose diagonal restriction has trivial classical nebentypus.
+    Native GrpHeckeElt evaluation throughout; never builds an
     HMFGrossencharsTorsor.
 
-    Returns a SeqEnum, not a SetEnum: GrpHeckeElt has no efficient Hash,
-    so building a SetEnum of them via repeated Include is O(n) per insert
-    (Magma falls back to a linear scan) -- O(n^2) total, and dominates
-    runtime for large character groups (measured: 9.7s to Include 2000
-    elements one at a time, vs 0.01s to Append the same 2000 to a
-    SeqEnum). Elements(H) are already pairwise distinct, so no dedup is
-    needed here in the first place -- just collect matches into a list.
+    Searches HeckeCharacterGroup(C,...) across the (few) ideals C returned
+    by MaximalIdealsOfNormDividing(ZK, frakN/Discriminant(K)), rather than
+    a single HeckeCharacterGroup at the much larger pushforward ideal
+    (frakN/Discriminant(K))*ZK -- see that intrinsic's docstring for why
+    this is both correct (nothing is missed) and much faster (empirically
+    ~790x fewer characters to touch in one measured case).
+
+    Returns a List (not a SeqEnum, since different C give psi from
+    different, incompatible HeckeCharacterGroup parents -- a SeqEnum
+    requires a common universe) and not a SetEnum (GrpHeckeElt has no
+    efficient Hash, so a SetEnum of them is O(n) per Include -- O(n^2)
+    total). Every C in Cs is searched (no attempt is made here to skip
+    "redundant" conjugate C's -- an earlier version tried that, on the
+    reasoning that the filter condition is conjugation-invariant so C and
+    C^sigma contribute the same characters up to conjugation, but this is
+    unsound: a psi discovered via C need not have ITS OWN true conductor
+    equal to C, and that true conductor's conjugate can fail to divide
+    C^sigma at all while still dividing some OTHER searched C' -- so
+    skipping C^sigma outright can silently drop psi whose conjugate
+    partner was never a raw survivor of anything searched. Simpler and
+    safer to search everything here and let PrunedGrossencharsSetRaw,
+    which handles arbitrary redundancy/overlap correctly, do all the
+    conjugate-pairing and self-conjugate exclusion). The resulting raw
+    list is not yet deduplicated in any sense -- in particular the SAME
+    primitive character can appear more than once, once per C its true
+    conductor divides (e.g. the trivial character, conductor 1*ZK,
+    divides every C) -- see PrunedGrossencharsSetRaw for how this, and
+    self-conjugate exclusion, are handled downstream.
   }
   F := BaseField(K);
   ZF := Integers(F);
   ZK := Integers(K);
   rel_disc := Discriminant(ZK);
-  M := frakN / rel_disc;
-  require IsIntegral(M) : "The discriminant of K/F does not divide frakN";
+  Mideal := frakN / rel_disc;
+  require IsIntegral(Mideal) : "The discriminant of K/F does not divide frakN";
   K_abs := AbsoluteField(K);
-  M := Integers(K_abs)!!M;
   N_oo := [1 .. #RealPlaces(K_abs)];
-  H := HeckeCharacterGroup(M, N_oo);
 
   Uz, mUz := UnitGroup(Integers(Ntgt));
   a_gens := [Integers()!(g @ mUz) : g in Generators(Uz)];
   filter := [<Integers(K_abs)!!ideal<ZF|a>, QuadraticCharacter(ideal<ZF|a>, K)> : a in a_gens];
 
-  S := [];
-  for psi in Elements(H) do
-    if &and[psi(t[1]) eq t[2] : t in filter] then
-      Append(~S, psi);
-    end if;
+  Cs := MaximalIdealsOfNormDividing(ZK, Mideal);
+  Cs_abs := [Integers(K_abs) !! C : C in Cs];
+
+  S := [* *];
+  for C_abs in Cs_abs do
+    H := HeckeCharacterGroup(C_abs, N_oo);
+    for psi in Elements(H) do
+      if &and[psi(t[1]) eq t[2] : t in filter] then
+        Append(~S, psi);
+      end if;
+    end for;
   end for;
   return S;
 end intrinsic;
@@ -489,6 +584,191 @@ intrinsic RawDihedralCandidates(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Ntgt::R
   return ans;
 end intrinsic;
 
+intrinsic DebugRawDihedralCandidatesInstrumented(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Ntgt::RngIntElt) -> List, Assoc
+  {
+    TEMPORARY debug utility: byte-for-byte copy of RawDihedralCandidates
+    with Cputime() checkpoints inserted, to find discrepancies between
+    isolated component timing and the real end-to-end cost (everything
+    computed fresh in one call, no reused objects across separate script
+    loads that might benefit from stale caching).
+  }
+  F := BaseField(GRing);
+  ZF := Integers(F);
+
+  t0 := Cputime();
+  Ks := QuadraticExtensionsWithConductor(frakN, [1 .. Degree(F)]);
+  timers := AssociativeArray();
+  timers["QuadraticExtensionsWithConductor"] := Cputime(t0);
+  timers["Trivial"] := 0.0;
+  timers["Pruned"] := 0.0;
+  timers["AbsoluteField"] := 0.0;
+  timers["PerPsiLoop"] := 0.0;
+  timers["RCG_D"] := 0.0;
+  timers["HC_D"] := 0.0;
+  timers["Compat_D"] := 0.0;
+  timers["HMFSpace_D"] := 0.0;
+  timers["ThetaSeries"] := 0.0;
+  timers["RCG_N"] := 0.0;
+  timers["HC_N"] := 0.0;
+  timers["Compat_N"] := 0.0;
+  timers["HMFSpace_N"] := 0.0;
+  timers["Inclusion"] := 0.0;
+  n_theta := 0;
+
+  ans := [* *];
+  for K in Ks do
+    t0 := Cputime();
+    S := TrivialDiagonalRestrictionGrossenchars(K, frakN, Ntgt);
+    timers["Trivial"] +:= Cputime(t0);
+    if #S eq 0 then continue; end if;
+
+    t0 := Cputime();
+    K_abs := AbsoluteField(K);
+    timers["AbsoluteField"] +:= Cputime(t0);
+
+    t0 := Cputime();
+    S := PrunedGrossencharsSetRaw(S, K_abs, F);
+    timers["Pruned"] +:= Cputime(t0);
+
+    ZK := Integers(K);
+    rel_disc := Discriminant(ZK);
+    for psi0 in S do
+      t_loop0 := Cputime();
+      psi := AssociatedPrimitiveCharacter(psi0);
+      D := ZF !! (Norm(ZK!!Conductor(psi)) * rel_disc);
+      if not IsIntegral(frakN/D) then
+        timers["PerPsiLoop"] +:= Cputime(t_loop0);
+        continue;
+      end if;
+
+      t0 := Cputime();
+      GD, mpD := RayClassGroup(D, [1 .. Degree(F)]);
+      timers["RCG_D"] +:= Cputime(t0);
+
+      t0 := Cputime();
+      B_D := <<mpD(g), psi(Integers(K_abs)!!mpD(g))^-1 * QuadraticCharacter(mpD(g), K)> : g in Generators(GD)>;
+      chi_D := HeckeCharacter(D, [1 .. Degree(F)], B_D);
+      timers["HC_D"] +:= Cputime(t0);
+
+      t0 := Cputime();
+      is_compat := IsCompatibleWeight(chi_D, [1,1]);
+      timers["Compat_D"] +:= Cputime(t0);
+      if not is_compat then
+        timers["PerPsiLoop"] +:= Cputime(t_loop0);
+        continue;
+      end if;
+
+      t0 := Cputime();
+      Mk_D := HMFSpace(GRing, D, [1,1], chi_D);
+      timers["HMFSpace_D"] +:= Cputime(t0);
+
+      t0 := Cputime();
+      f_D := ThetaSeries(Mk_D, psi);
+      timers["ThetaSeries"] +:= Cputime(t0);
+      n_theta +:= 1;
+
+      if D ne frakN then
+        t0 := Cputime();
+        GN, mpN := RayClassGroup(frakN, [1 .. Degree(F)]);
+        timers["RCG_N"] +:= Cputime(t0);
+
+        t0 := Cputime();
+        B_N := <<mpN(g), psi(Integers(K_abs)!!mpN(g))^-1 * QuadraticCharacter(mpN(g), K)> : g in Generators(GN)>;
+        chi_N := HeckeCharacter(frakN, [1 .. Degree(F)], B_N);
+        timers["HC_N"] +:= Cputime(t0);
+
+        t0 := Cputime();
+        n_compat_n := IsCompatibleWeight(chi_N, [1,1]);
+        timers["Compat_N"] +:= Cputime(t0);
+        if not n_compat_n then
+          timers["PerPsiLoop"] +:= Cputime(t_loop0);
+          continue;
+        end if;
+
+        t0 := Cputime();
+        Mk_N := HMFSpace(GRing, frakN, [1,1], chi_N);
+        timers["HMFSpace_N"] +:= Cputime(t0);
+
+        t0 := Cputime();
+        for dd in Divisors(frakN/D) do
+          f := Inclusion(f_D, Mk_N, dd);
+          Append(~ans, <f, D, K, dd>);
+        end for;
+        timers["Inclusion"] +:= Cputime(t0);
+      else
+        Append(~ans, <f_D, D, K, 1*ZF>);
+      end if;
+      timers["PerPsiLoop"] +:= Cputime(t_loop0);
+    end for;
+  end for;
+  timers["n_theta"] := n_theta;
+  timers["n_final"] := #ans;
+  return ans, timers;
+end intrinsic;
+
+intrinsic DebugPerCandidateTiming(GRing::ModFrmHilDGRng, K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> Tup
+  {
+    TEMPORARY debug utility: like the per-K inner loop of
+    RawDihedralCandidates, but returns cumulative timings for each stage
+    instead of the candidates themselves.
+  }
+  F := BaseField(GRing);
+  ZF := Integers(F);
+  S := TrivialDiagonalRestrictionGrossenchars(K, frakN, Ntgt);
+  K_abs := AbsoluteField(K);
+  S := PrunedGrossencharsSetRaw(S, K_abs, F);
+  ZK := Integers(K);
+  rel_disc := Discriminant(ZK);
+
+  t_rcg := 0.0; t_hc := 0.0; t_compat := 0.0; t_hmfspace := 0.0; t_theta := 0.0; t_incl := 0.0;
+  n_pass := 0; n_compat := 0; n_theta := 0;
+  for psi0 in S do
+    psi := AssociatedPrimitiveCharacter(psi0);
+    D := ZF !! (Norm(ZK!!Conductor(psi)) * rel_disc);
+    if not IsIntegral(frakN/D) then continue; end if;
+    n_pass +:= 1;
+
+    t0 := Cputime();
+    GD, mpD := RayClassGroup(D, [1 .. Degree(F)]);
+    t_rcg +:= Cputime(t0);
+
+    t0 := Cputime();
+    B_D := <<mpD(g), psi(Integers(K_abs)!!mpD(g))^-1 * QuadraticCharacter(mpD(g), K)> : g in Generators(GD)>;
+    chi_D := HeckeCharacter(D, [1 .. Degree(F)], B_D);
+    t_hc +:= Cputime(t0);
+
+    t0 := Cputime();
+    is_compat := IsCompatibleWeight(chi_D, [1,1]);
+    t_compat +:= Cputime(t0);
+    if not is_compat then continue; end if;
+    n_compat +:= 1;
+
+    t0 := Cputime();
+    Mk_D := HMFSpace(GRing, D, [1,1], chi_D);
+    t_hmfspace +:= Cputime(t0);
+
+    t0 := Cputime();
+    f_D := ThetaSeries(Mk_D, psi);
+    t_theta +:= Cputime(t0);
+    n_theta +:= 1;
+
+    if D ne frakN then
+      t0 := Cputime();
+      GN, mpN := RayClassGroup(frakN, [1 .. Degree(F)]);
+      B_N := <<mpN(g), psi(Integers(K_abs)!!mpN(g))^-1 * QuadraticCharacter(mpN(g), K)> : g in Generators(GN)>;
+      chi_N := HeckeCharacter(frakN, [1 .. Degree(F)], B_N);
+      if IsCompatibleWeight(chi_N, [1,1]) then
+        Mk_N := HMFSpace(GRing, frakN, [1,1], chi_N);
+        for dd in Divisors(frakN/D) do
+          f := Inclusion(f_D, Mk_N, dd);
+        end for;
+      end if;
+      t_incl +:= Cputime(t0);
+    end if;
+  end for;
+  return <n_pass, n_compat, n_theta, t_rcg, t_hc, t_compat, t_hmfspace, t_theta, t_incl>;
+end intrinsic;
+
 intrinsic RawDihedralPreInclusionForms(GRing::ModFrmHilDGRng, K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> List
   {
     Debug utility: like RawDihedralCandidates, but restricted to a single
@@ -556,67 +836,133 @@ intrinsic RawDihedralPsiInfo(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Ntgt::RngI
   return out;
 end intrinsic;
 
-intrinsic PrunedGrossencharsSetRaw(S::SeqEnum, K_abs::FldNum, F::Fld) -> SeqEnum
+intrinsic PrunedGrossencharsSetRaw(S::List, K_abs::FldNum, F::Fld) -> List
   {
-    Raw-GrpHeckeElt analog of PrunedGrossencharsSet: given a duplicate-free
-    sequence S of finite-order psi::GrpHeckeElt of K_abs (all sharing a
-    common modulus stable under Gal(K_abs/F)), remove one element of each
-    conjugate pair (they give the same theta series). Unlike
-    PrunedGrossencharsSet, does not wrap elements in HMFGrossenchar and
-    does not use StrongCoerce -- native evaluations of elements of the
-    same HeckeCharacterGroup already land in a common field.
+    Raw-GrpHeckeElt analog of PrunedGrossencharsSet: given a sequence S of
+    finite-order psi::GrpHeckeElt of K_abs (drawn from possibly several
+    different ambient moduli -- see TrivialDiagonalRestrictionGrossenchars,
+    which now searches HeckeCharacterGroup(C,...) across several ideals C
+    rather than one large modulus), returns one representative of each
+    genuinely distinct, non-self-conjugate primitive character among them,
+    i.e. exactly the set that gives distinct cuspidal dihedral theta
+    series. Unlike PrunedGrossencharsSet, does not wrap elements in
+    HMFGrossenchar and does not use StrongCoerce -- native evaluations of
+    elements of the same HeckeCharacterGroup already land in a common
+    field.
 
-    Takes/returns SeqEnum, not SetEnum: GrpHeckeElt has no efficient Hash,
-    so a SetEnum of them is O(n) per Include/Exclude (linear scan) --
-    O(n^2) total for the working set here. Bookkeeping is done via integer
-    indices into S instead (SetEnum of RngIntElt hashes natively and is
-    fast), and conjugate-pair lookup uses an AssociativeArray keyed by the
-    evaluation-vector (a SeqEnum of field elements, also hashes fine) --
-    only the actual GrpHeckeElt values are ever touched via S[i], never
-    inserted into a Set. Measured: eliminates a >15-minute hang (n=5488)
-    down to single-digit seconds.
+    Two things S can now contain that the single-shared-modulus version
+    this replaces did not need to worry about:
 
-    Two further redundant recomputations, also fixed here: (1)
-    ConjugateIdeal(K_abs,F,I) depends only on I, not on psi, but the
-    original loop called it fresh on every iteration for every I in
-    idl_gens -- hoisted out and computed once (measured: ~40ms/call,
-    ~2700 iterations x 5 gens = the dominant remaining cost otherwise,
-    ~9 minutes for a single large case). (2) each psi's "forward"
-    evaluation vector [psi(I) : I in idl_gens] was computed once to key
-    evals_to_idx and then recomputed from scratch inside the loop as
-    psi_evals -- now cached alongside the AssociativeArray build and
-    reused via array lookup.
+    (1) The SAME primitive character can appear more than once in S, via
+    different ambient moduli C that its true conductor happens to divide
+    (e.g. the trivial character, conductor 1*ZK, divides every C searched
+    and so is a raw survivor of every one of them; more generally any
+    character whose conductor divides the "gcd" of two or more searched
+    C's). Handled by primitivizing every element up front and deduping on
+    the primitive result before any conjugate-pairing logic runs.
+
+    Deduping is keyed on <N_f, N_oo, Eltseq(psi)>, NOT on Modulus(psi)
+    used directly as (part of) a tuple: Modulus returns TWO values
+    (N_f, N_oo), and embedding a multi-return call directly inside a
+    tuple/list-forming expression in Magma silently keeps only the FIRST
+    of them -- a real bug caught here: AssociatedPrimitiveCharacter can
+    shrink N_oo to a proper subset of the places actually present in the
+    ambient modulus (not just the finite part), and two psi with the same
+    finite conductor but genuinely different N_oo (e.g. [1,4] vs [2,3],
+    swapped by the K/F automorphism) were being wrongly merged as
+    "duplicates" when only N_f was captured -- silently discarding one of
+    two distinct primitive characters. N_f, N_oo are pulled out via
+    explicit assignment first specifically to avoid this.
+
+    (2) A psi that is individually self-conjugate (psi eq psi^sigma --
+    these don't correspond to cuspidal dihedral forms, only to
+    reducible/Eisenstein-type inductions) can arise even when the ambient
+    modulus C it was found via is NOT itself self-conjugate: self-
+    conjugacy is a property of the character's own (primitive) conductor,
+    not of whichever possibly-non-primitive C it happened to be
+    discovered through. So self-conjugacy is checked (and conjugate
+    pairing is done) only AFTER primitivizing and deduping per (1) above,
+    directly on each element's own true conductor -- never inferred from
+    which C it came from.
+
+    The primitivize+dedupe set is small in every case actually
+    encountered (bounded by the total size of the -- already small, see
+    MaximalIdealsOfNormDividing -- HeckeCharacterGroup(C,...) searched for
+    each C), so the O(n^2)-in-the-deduped-set conjugate-pairing loop below
+    is not a performance concern; the historical O(n^2) blowup this
+    intrinsic was rewritten to avoid (n in the thousands, from a single
+    huge shared modulus) cannot recur under the current caller.
   }
   if #S eq 0 then
     return S;
   end if;
-  N_f, N_oo := Modulus(S[1]);
-  G, mp := RayClassGroup(N_f, N_oo);
-  idl_gens := [mp(g) : g in Generators(G)];
-  conj_idl_gens := [ConjugateIdeal(K_abs, F, I) : I in idl_gens];
 
-  S_evals := [[psi(I) : I in idl_gens] : psi in S];
-  evals_to_idx := AssociativeArray();
-  for i -> ev in S_evals do
-    evals_to_idx[ev] := i;
+  // (1) primitivize + dedupe exact duplicates. Keyed on a string, not a
+  // tuple: tuples <Nf, Noo, Eltseq(psi)> vary in "shape" across different
+  // psi (Noo and Eltseq(psi) can have different lengths), which breaks
+  // SetEnum's homogeneous-universe requirement (same underlying issue as
+  // GrpHeckeElt having no efficient Hash -- see TrivialDiagonalRestrictionGrossenchars's
+  // docstring); a string is always a uniform, hashable type.
+  seen_keys := {};
+  prims := [* *];
+  for psi0 in S do
+    psi := AssociatedPrimitiveCharacter(psi0);
+    Nf, Noo := Modulus(psi);
+    key := Sprintf("%o|%o|%o", Nf, Noo, Eltseq(psi));
+    if key in seen_keys then continue; end if;
+    Include(~seen_keys, key);
+    Append(~prims, psi);
   end for;
 
-  remaining := {1 .. #S};
-  pruned_chis := [];
-  while not IsEmpty(remaining) do
-    i := Rep(remaining);
-    psi := S[i];
-    psi_evals := S_evals[i];
-    conj_evals := [psi(cI) : cI in conj_idl_gens];
-    if psi_evals ne conj_evals then
-      Append(~pruned_chis, psi);
+  // (2) exclude self-conjugate psi, pair up the rest. Test generators are
+  // drawn from RayClassGroup(Nf_i, N_oo_full) -- the FULL set of infinite
+  // places of K_abs, not psi's own (post-primitivization) N_oo -- even
+  // though psi eq AssociatedPrimitiveCharacter(psi) may only "genuinely"
+  // depend on a proper subset of the places (e.g. N_oo={1,4} out of
+  // {1,2,3,4}). This matters: two primitive characters can have the same
+  // finite conductor and each look individually self-conjugate when
+  // tested only against their own (shrunken) N_oo's ray class group,
+  // while genuinely being a conjugate PAIR of each other once tested
+  // against the full infinity structure -- confirmed against the old,
+  // never-primitivizing-before-comparing pipeline, which evaluates
+  // exactly this way (implicitly, by testing while still at the original
+  // un-primitivized ambient modulus) and does NOT exclude the analogous
+  // survivor. Using a too-small N_oo for the test is a strictly weaker,
+  // potentially-wrong test, not just an inefficient one.
+  N_oo_full := [1 .. #RealPlaces(K_abs)];
+  pruned_chis := [* *];
+  excluded := {};
+  for i -> psi in prims do
+    if i in excluded then continue; end if;
+    Nf_i := Modulus(psi);
+    Csigma := ConjugateIdeal(K_abs, F, Nf_i);
+    G_i, mp_i := RayClassGroup(Nf_i, N_oo_full);
+    idl_gens_i := [mp_i(g) : g in Generators(G_i)];
+    conj_idl_gens_i := [ConjugateIdeal(K_abs, F, I) : I in idl_gens_i];
+    psi_evals := [psi(I) : I in idl_gens_i];
+
+    if Nf_i eq Csigma and psi_evals eq [psi(cI) : cI in conj_idl_gens_i] then
+      // self-conjugate: exclude entirely, no partner to find
+      Include(~excluded, i);
+      continue;
     end if;
-    assert IsDefined(evals_to_idx, conj_evals);
-    j := evals_to_idx[conj_evals];
-    assert j in remaining;
-    Exclude(~remaining, j);
-    Exclude(~remaining, i);
-  end while;
+
+    // find the (unique) partner j: primitive, finite conductor Csigma,
+    // agreeing with psi under conjugation
+    found := false;
+    for j -> psi2 in prims do
+      if j eq i or j in excluded then continue; end if;
+      if Modulus(psi2) ne Csigma then continue; end if;
+      if psi_evals eq [psi2(cI) : cI in conj_idl_gens_i] then
+        Include(~excluded, j);
+        found := true;
+        break;
+      end if;
+    end for;
+    assert found;
+    Include(~excluded, i);
+    Append(~pruned_chis, psi);
+  end for;
   return pruned_chis;
 end intrinsic;
 
