@@ -430,6 +430,22 @@ intrinsic RawDihedralCandidates(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Ntgt::R
       GD, mpD := RayClassGroup(D, [1 .. Degree(F)]);
       B_D := <<mpD(g), psi(Integers(K_abs)!!mpD(g))^-1 * QuadraticCharacter(mpD(g), K)> : g in Generators(GD)>;
       chi_D := HeckeCharacter(D, [1 .. Degree(F)], B_D);
+      // chi_D is reconstructed directly from psi's values, with no guarantee
+      // it's an admissible weight-[1,1] nebentype: unlike the old pipeline
+      // (which only ever tries chi's that are already elements of a
+      // HeckeCharacterGroup, hence automatically compatible), we build chi_D
+      // from scratch and psi's real-place sign behavior can make it
+      // incompatible -- concretely, at a real place v of F that splits into
+      // two real places w,w' of K (i.e. K is unramified/real at v: this is
+      // the generic case in the RM branch, and can also occur at individual
+      // places of a mixed-signature K), weight-[1,1] compatibility requires
+      // psi's local signs at w and w' to differ; nothing upstream enforces
+      // this. Skip (not error) when it fails, matching what the old pipeline
+      // would implicitly do (no compatible chi ever gets tried against this
+      // psi, so it's silently absent from old's results too).
+      if not IsCompatibleWeight(chi_D, [1,1]) then
+        continue;
+      end if;
       Mk_D := HMFSpace(GRing, D, [1,1], chi_D);
       f_D := ThetaSeries(Mk_D, psi);
 
@@ -437,6 +453,13 @@ intrinsic RawDihedralCandidates(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Ntgt::R
         GN, mpN := RayClassGroup(frakN, [1 .. Degree(F)]);
         B_N := <<mpN(g), psi(Integers(K_abs)!!mpN(g))^-1 * QuadraticCharacter(mpN(g), K)> : g in Generators(GN)>;
         chi_N := HeckeCharacter(frakN, [1 .. Degree(F)], B_N);
+        // chi_N is built from the same psi via the same construction, so
+        // expected to inherit compatibility from chi_D, but that's not
+        // structurally guaranteed (different modulus, different generating
+        // set) -- check explicitly rather than assume.
+        if not IsCompatibleWeight(chi_N, [1,1]) then
+          continue;
+        end if;
         Mk_N := HMFSpace(GRing, frakN, [1,1], chi_N);
         // Inclusion(f_D,Mk_N) (2-arg) returns one form per divisor dd of
         // frakN/D, each computed via the 3-arg Inclusion(f_D,Mk_N,dd) using
