@@ -425,8 +425,14 @@ intrinsic ClassGroupReps(X::HMFGrossencharsTorsor) -> SeqEnum[Tup]
       return [];
     end if;
     rcg, rc_map:= RayClassGroup(X`FiniteModulus, X`InfiniteModulus);
-    cg_gens := Generators(X`ClassGroup);
-    cg_gens_og := cg_gens;
+    // NB: Generators(X`ClassGroup) returns a SetEnum, whose iteration order
+    // is *not* guaranteed to match the canonical generator order
+    // (X`ClassGroup.1, X`ClassGroup.2, ...) that Eltseq decomposes elements
+    // with respect to. Evaluate(chi, I) below relies on cg_reps being
+    // indexed in that canonical order to match up with Eltseq(g), so we
+    // must build cg_gens_og explicitly in index order rather than via
+    // Generators(-).
+    cg_gens_og := [X`ClassGroup.i : i in [1 .. Ngens(X`ClassGroup)]];
     cg_reps_dict := AssociativeArray();
 
     // find a subset of ideal generators of the ray class group 
@@ -626,7 +632,11 @@ intrinsic Evaluate(chi::HMFGrossenchar, I::RngOrdIdl : custom_weight:=0, gen:=0,
     // We choose a generator for IJ^-1. 
     c, x := IsPrincipal(I * J^-1);
     require c : "Something has gone wrong, I * J^-1 should be principal";
-    chi_at_J := &*[chi`ClassRepEvals[cg_reps[i][2]]^(g_factzn_exps[i]) : i in [1 .. #cg_reps]];
+    // chi`ClassRepEvals[...] for different generators can live in genuinely
+    // different (but compatible) number field objects -- e.g. different
+    // radical extensions when generators have different orders -- so we
+    // can't rely on a plain &* to find a common universe for the sequence.
+    chi_at_J := StrongMultiply([* chi`ClassRepEvals[cg_reps[i][2]]^(g_factzn_exps[i]) : i in [1 .. #cg_reps] *]);
   end if;
 
   return StrongMultiply([*
