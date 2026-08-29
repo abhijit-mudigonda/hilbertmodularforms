@@ -90,8 +90,27 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilte
       infinite order Grossencharacters";
   K := X`BaseField;
   require IsSubfield(F, K) : "F is not a subfield of K";
-
   N_f, N_oo := Modulus(X);
+  S := HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter);
+  return PruneConjugatePairs(S, K, F, N_f, N_oo);
+end intrinsic;
+
+intrinsic PruneConjugatePairs(S::SetEnum, K::Fld, F::Fld, N_f::RngOrdIdl, N_oo::SeqEnum[RngIntElt]) -> SetEnum
+  {
+    input:
+      S - A set of HMFGrossenchar objects, all of modulus (N_f, N_oo) over K
+      K, F - K/F a quadratic extension, N_f stable under the Gal(K/F) action
+    returns:
+      The subset of S consisting of characters which are not self-conjugate
+      under the K/F action, one representative from each conjugate pair.
+
+    Shared tail of PrunedGrossencharsSet (S built by materializing
+    HeckeCharacterGroup(N_f,N_oo) in full) and the tight per-divisor search
+    in PossibleGrossencharsOfRelQuadExt (S built without ever materializing
+    the full group) -- both need the same conjugate-pairing logic on
+    whatever raw survivor set they arrive at.
+  }
+  require IsSubfield(F, K) : "F is not a subfield of K";
   H := HeckeCharacterGroup(N_f, N_oo);
 
   // If H is trivial then the ray class group is trivial and the trivial
@@ -101,21 +120,21 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilte
     return {};
   end if;
 
-  S := HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter);
-
   G, mp := RayClassGroup(N_f, N_oo);
   gens := Generators(G);
   idl_gens := [mp(g) : g in gens];
-  lcm_order := LCM([Order(g) : g in gens]); 
+  // ConjugateIdeal(K,F,I) depends only on (K,F,idl_gens), not on chi --
+  // hoisted out of the while loop below rather than recomputed once per
+  // surviving character.
+  conj_idl_gens := [ConjugateIdeal(K, F, I) : I in idl_gens];
+  lcm_order := LCM([Order(g) : g in gens]);
   L := CyclotomicField(lcm_order);
 
   chi_to_evals := AssociativeArray();
   evals_to_chi := AssociativeArray();
 
-  pairs := [];
-
   for chi in S do
-    chi_evals := [StrongCoerce(L, chi(I)) : I in idl_gens]; 
+    chi_evals := [StrongCoerce(L, chi(I)) : I in idl_gens];
     chi_to_evals[chi`RayClassChar] := chi_evals;
     evals_to_chi[chi_evals] := chi;
   end for;
@@ -125,7 +144,7 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilte
   while not IsEmpty(chis) do
     chi := Rep(chis);
     chi_evals := chi_to_evals[chi`RayClassChar];
-    conj_chi_evals := [StrongCoerce(L, chi(ConjugateIdeal(K, F, I))) : I in idl_gens];
+    conj_chi_evals := [StrongCoerce(L, chi(J)) : J in conj_idl_gens];
     // include chi in the set of pruned chis if
     // chi isn't self-conjugate
     if chi_evals ne conj_chi_evals then
@@ -193,6 +212,70 @@ intrinsic HeckeCharWeightFromWeight(K::Fld, F::Fld, k::SeqEnum[RngIntElt]) -> Se
   end if;
 end intrinsic;
 
+intrinsic TightRayClassFilteredGrossencharsSet(X::HMFGrossencharsTorsor, K::Fld, N::RngOrdIdl, RayClassFilter::SeqEnum) -> SetEnum
+  {
+    Fast raw-survivor-set builder for PossibleGrossencharsOfRelQuadExt's
+    finite-order (e.g. weight [1,1]) case: same contract as
+    HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter) -- genuine
+    HeckeCharacterGroup(Modulus(X))-level HMFGrossenchar objects satisfying
+    every condition in RayClassFilter -- but without ever materializing
+    HeckeCharacterGroup(Modulus(X)) in full, which X`FiniteModulus =
+    (N/Discriminant(Integers(K)))*Integers(X`BaseField) makes wastefully
+    large for the same reason MaximalIdealsOfNormDividingAbs's docstring
+    describes (relative norm squares under pushforward).
+
+    K must be the RELATIVE quadratic extension (not AbsoluteField(K)), so
+    the split/ramified/inert structure needed for tight per-prime divisor
+    bounds is available; X`BaseField must be AbsoluteField(K). N is the
+    original level ideal of the base field F := BaseField(K).
+
+    Searches HeckeCharacterGroup(C,...) for each tight divisor C from
+    MaximalIdealsOfNormDividingAbs, instead of HeckeCharacterGroup(Modulus(X),...)
+    -- empirically ~790x fewer characters to touch in the case that
+    motivated this (see MaximalIdealsOfNormDividingAbs). A survivor found
+    via one C is re-expressed as a HeckeCharacterGroup(Modulus(X),...)
+    element (evaluating it on that group's own generators, then
+    reconstructing via HeckeCharacter) before being wrapped via
+    cHMFGrossenchar, which requires Modulus(psi) eq Modulus(X) exactly.
+    The same primitive character can be found via more than one C (e.g.
+    the trivial character divides every C); deduped by evaluation vector
+    at Modulus(X)'s ray class group generators, which is exactly the
+    invariant that determines the resulting HeckeCharacterGroup(Modulus(X))
+    element regardless of which C it was found through.
+  }
+  F := BaseField(K);
+  rel_disc := Discriminant(Integers(K));
+  M := N / rel_disc;
+  require IsIntegral(M) : "The discriminant of K/F does not divide N";
+
+  ZKabs := Integers(X`BaseField);
+  N_f, N_oo := Modulus(X);
+  GM, mpM := RayClassGroup(N_f, N_oo);
+  // Generators(GM) is a SetEnum, not index-able -- fix a definite order once
+  // so gens_M[i] and vals[i] (built from it below) stay paired correctly.
+  gens_M := [g : g in Generators(GM)];
+  lcm_order := LCM([Order(g) : g in gens_M] cat [1]);
+  L := CyclotomicField(lcm_order);
+
+  survivors := AssociativeArray();
+  for C in MaximalIdealsOfNormDividingAbs(ZKabs, M) do
+    for chi0 in Elements(HeckeCharacterGroup(C, N_oo)) do
+      if not &and[StrongEquality(chi0(tup[1]), tup[2]) : tup in RayClassFilter] then
+        continue;
+      end if;
+      vals := [chi0(mpM(g)) : g in gens_M];
+      key := [StrongCoerce(L, v) : v in vals];
+      if IsDefined(survivors, key) then
+        continue;
+      end if;
+      B := <<mpM(gens_M[i]), vals[i]> : i in [1 .. #gens_M]>;
+      chi_lifted := HeckeCharacter(N_f, N_oo, B);
+      survivors[key] := cHMFGrossenchar(X, chi_lifted);
+    end for;
+  end for;
+  return {survivors[k] : k in Keys(survivors)};
+end intrinsic;
+
 intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, AllowImprimitive:=false) -> List
   {
     inputs:
@@ -252,7 +335,9 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, Allo
     ray_class_filter := [<Integers(K_abs)!!mF(g),
         QuadraticCharacter(mF(g), K) * chi(mF(g))^-1 * Norm(mF(g))^-(Max(k_hmf) - 1)>
         : g in Generators(GF)];
-    S := PrunedGrossencharsSet(X, F : RayClassFilter:=ray_class_filter);
+    raw := TightRayClassFilteredGrossencharsSet(X, K, N, ray_class_filter);
+    N_f, N_oo := Modulus(X);
+    S := PruneConjugatePairs(raw, K_abs, F, N_f, N_oo);
   else
     use_cache := GRing cmpne false;
     k_key := Sprint(k_hmf);
@@ -351,87 +436,27 @@ end intrinsic;
 
 //////////////////////////////// Computing spaces of dihedral forms
 
-intrinsic MaximalIdealsOfNormDividing(ZK::RngOrd, Mideal::RngOrdIdl) -> SeqEnum
-  {
-    ZK the ring of integers of a quadratic extension K of F := NumberField
-    (Order(Mideal)). Returns a duplicate-free sequence of ideals C of ZK,
-    each maximal (under divisibility) among ideals whose relative norm
-    N_KF(C) divides Mideal, such that EVERY ideal D of ZK with
-    N_KF(D) | Mideal divides some C in the returned sequence (hence
-    appears, possibly imprimitively, in HeckeCharacterGroup(C,...) for
-    that C).
-
-    This is a much tighter search bound than the single ideal Mideal*ZK
-    used previously: since D | N_KF(D)*ZK always (as D*D^sigma =
-    N_KF(D)*ZK), Mideal*ZK is a valid but wasteful upper bound whose
-    OWN relative norm is Mideal^2, not Mideal -- e.g. for a case with
-    #HeckeCharacterGroup(Mideal*ZK,...) = 115248, the ideals actually
-    produced by this intrinsic have combined character-group size 146,
-    a ~790x reduction, empirically confirmed to translate directly into
-    proportionally faster downstream search.
-
-    Per-prime local structure (p a prime of F dividing Mideal with
-    exponent e): if p is INERT in K (single prime P, N(P)=p^2), the
-    maximal local ideal is P^(e div 2) -- note e need not be even; if e
-    is odd, this maximal ideal has norm p^(e-1), strictly less than
-    p^e, which is correct (norm p^e is not achievable by any ideal above
-    an inert prime at all, so nothing is lost by not trying to hit it
-    exactly). If p is RAMIFIED (P^2=p*ZK, N(P)=p), the unique maximal
-    ideal is P^e (norm exactly p^e). If p is SPLIT (P,P' distinct,
-    N(P)=N(P')=p), every P^a*P'^(e-a) for a in [0..e] is simultaneously
-    maximal (norm exactly p^e, but not comparable to each other under
-    divisibility) -- e+1 genuinely different ideals to search separately.
-
-    Returns [1*ZK] when Mideal is the unit ideal (vacuously correct: the
-    only ideal of norm dividing 1*ZF is 1*ZK itself).
-  }
-  ZF := Order(Mideal);
-  local_choices := [* *];
-  for pe in Factorization(Mideal) do
-    p := pe[1]; e := pe[2];
-    pK_fact := Factorization(ideal<ZK | [ZK!x : x in Generators(p)]>);
-    options := [];
-    if #pK_fact eq 1 and pK_fact[1][2] eq 2 then
-      // ramified: unique maximal ideal, norm exactly p^e
-      P := pK_fact[1][1];
-      Append(~options, P^e);
-    elif #pK_fact eq 1 and pK_fact[1][2] eq 1 then
-      // inert: unique maximal ideal, norm p^(2*(e div 2)) <= p^e
-      P := pK_fact[1][1];
-      Append(~options, P^(e div 2));
-    elif #pK_fact eq 2 then
-      // split: e+1 pairwise-incomparable maximal ideals, each norm exactly p^e
-      P := pK_fact[1][1]; Pp := pK_fact[2][1];
-      for a in [0 .. e] do
-        Append(~options, P^a * Pp^(e-a));
-      end for;
-    end if;
-    Append(~local_choices, options);
-  end for;
-
-  Cs := [1*ZK];
-  for opts in local_choices do
-    newCs := [];
-    for c in Cs do
-      for o in opts do
-        Append(~newCs, c*o);
-      end for;
-    end for;
-    Cs := newCs;
-  end for;
-  return Cs;
-end intrinsic;
-
 intrinsic MaximalIdealsOfNormDividingAbs(ZKabs::RngOrd, Mideal::RngOrdIdl) -> SeqEnum
   {
-    Absolute-order-native version of MaximalIdealsOfNormDividing: same
-    per-prime split/ramified/inert logic and maximal-divisor-set semantics,
-    but factors each prime p of F directly in the absolute order ZKabs
-    (via ZKabs !! p) instead of the relative order ZK, with the result
-    coerced across afterward.
+    ZKabs the ring of integers of a quadratic extension K of
+    F := NumberField(Order(Mideal)), realized as an absolute field.
+    Returns a duplicate-free sequence of ideals C of ZKabs, each maximal
+    (under divisibility) among ideals whose relative norm N_KF(C) divides
+    Mideal, such that every ideal D of ZKabs with N_KF(D) | Mideal divides
+    some C in the returned sequence.
 
-    For K whose relative defining polynomial is non-integral, the
-    relative-order route is unreliable: empirically (m=6, N=56/57/80/84/88/90)
+    This is a much tighter search bound than the single ideal Mideal*ZKabs:
+    since D | N_KF(D)*ZKabs always, Mideal*ZKabs is a valid but wasteful
+    upper bound whose own relative norm is Mideal^2, not Mideal (e.g. for a
+    case with #HeckeCharacterGroup(Mideal*ZKabs,...) = 115248, the ideals
+    actually produced here have combined character-group size 146, a
+    ~790x reduction).
+
+    Factors each prime p of F directly in the absolute order ZKabs (via
+    ZKabs !! p), rather than in a relative order ZK with the result
+    coerced across afterward. For K whose relative defining polynomial is
+    non-integral, the relative-order route is unreliable: empirically
+    (m=6, N=56/57/80/84/88/90)
     it can throw "Ideal is fractional" on coercion to ZKabs, or silently
     return a wrong non-integral ideal (Magma's AbsoluteField exposes no
     isomorphism to coerce correctly). Factoring in ZKabs directly sidesteps
@@ -469,6 +494,144 @@ intrinsic MaximalIdealsOfNormDividingAbs(ZKabs::RngOrd, Mideal::RngOrdIdl) -> Se
   end for;
   return Cs;
 end intrinsic;
+
+intrinsic ThetaSeries(Mk::ModFrmHilD, psi::HMFGrossenchar) -> ModFrmHilDElt
+  {
+    Given a totally real field F, a quadratic extension K of F,
+    and a finite order Hecke character of K, compute the associated theta series.
+  }
+  M := Parent(Mk);
+  F := BaseField(M);
+ 
+  ZF := Integers(F);
+  prec := Precision(M);
+  K := NumberField(Order(Modulus(psi))); 
+
+  // TODO abhijitm this is known (9/20/25) to fail in a lot of nonparitious
+  // cases due to field coercion issues. I'm hoping that the pending migration
+  // to FldNumEmb will resolve them, but until then use with caution.
+  //
+  // You might be able to get away with calling #PossibleGrossenchars, which should
+  // work more often, and using it as an upper bound for the dimension of CM forms.
+  paritious_weight := IsParitious(Weight(Mk));
+  if not paritious_weight then
+    X := Parent(psi);
+    require NarrowClassNumber(F) eq 1 : "Nonparitious forms are only implemented for
+      fields with narrow class number one";
+    assert IsSubfield(F, K);
+    K_rel := RelativeField(F, K);
+    // K/F is CM and tau is the nontrivial automorphism
+    assert Degree(K_rel) eq 2;
+    tau := Automorphisms(K_rel)[2];
+    k := Weight(Mk);
+    k0 := Max(k);
+    lies_over := OrderedPlacesOfCMField(K, F);
+    shifted_half_weight := [(k0 - k[lies_over[i]]) / 2 : i in [1..#k]];
+    custom_weight := [
+      <Integers()!(X`Weight[i][1] - shifted_half_weight[i]),
+      Integers()!(X`Weight[i][2] - shifted_half_weight[i])> :
+      i in [1 .. Degree(F)]];
+    // TODO abhijitm somehow some errors don't occur when this
+    // is X`BaseField instead of the splitting field.
+    L := SplittingField(X`BaseField);
+  end if;
+
+  // We create an associative array indexed by prime ideals pp up to 
+  // Precision(Parent(Mk)) and populate them with traces associated to psi.
+  coeffs_by_pp := AssociativeArray();
+  pis_by_pp := AssociativeArray();
+  for pp in PrimeIdeals(M) do
+    fact := Factorization(Integers(K) !! pp);
+    g := #fact;
+    d := InertiaDegree(pp);
+    if paritious_weight then
+      if g eq 2 then
+        coeffs_by_pp[pp] := StrongAdd([* psi(fact[1][1]), psi(fact[2][1]) *]);
+      elif fact[1][2] ne 1 then
+        coeffs_by_pp[pp] := psi(fact[1][1]);
+      else
+        coeffs_by_pp[pp] := 0;
+      end if;
+    else
+      if g eq 2 then
+        _, lambda_1 := IsNarrowlyPrincipal(fact[1][1]);
+        lambdas := [lambda_1, tau(lambda_1)];
+        pi := F!(&*lambdas);
+        assert Norm(pi) eq Norm(pp);
+        psi_evals := [* Evaluate(psi, fact[i][1] : custom_weight:=custom_weight, gen:=lambdas[i])
+                  : i in [1..2] *];
+        coeffs_by_pp[pp] := L!StrongAdd(psi_evals);
+      elif fact[1][2] ne 1 then
+        _, lambda := IsNarrowlyPrincipal(fact[1][1]);
+        lambdas := [lambda, tau(lambda)];
+        pi := F!(&*lambdas);
+        assert Norm(pi) eq Norm(pp);
+        coeffs_by_pp[pp] := L!Evaluate(psi, fact[1][1] : custom_weight:=custom_weight, gen:=lambda);
+      else
+        coeffs_by_pp[pp] := L!0;
+        pi := codifferent_generator(Parent(Mk))^-1 * IdealToRep(M, pp);
+      end if;
+      pis_by_pp[pp] := pi;
+    end if;
+  end for;
+
+  if paritious_weight then
+    nonzero_coeff_vals := [* v : pp -> v in coeffs_by_pp | v ne 0 *];
+    coeff_ring := (#nonzero_coeff_vals eq 0) select Rationals() else Parent(StrongAdd(nonzero_coeff_vals));
+    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : coeff_ring := coeff_ring);
+  else
+    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : 
+                                                    from_a_pp:=false,
+                                                    mfh_reps:=pis_by_pp,
+                                                    coeff_ring:=L
+                                                  );
+  end if;
+end intrinsic;
+
+intrinsic ProbabilisticDihedralTest(f::ModFrmHilDElt) -> BoolElt
+  {returns true if this form could be dihedral, false if it cannot be}
+  Mk := Parent(f);
+  M := Parent(Mk);
+  F := BaseField(Mk);
+  N := Level(Mk);
+  k := Weight(Mk);
+  BOUND := 100;
+  is_paritious := IsParitious(k);
+
+  Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(F)]);
+  for K in Ks do
+    possibly_dihedral := true;
+    ZK := Integers(K);
+
+    // inert primes stores the inert primes of norm at most BOUND
+    inert_primes := [pp : pp in PrimesUpTo(BOUND, F : coprime_to:=Discriminant(ZK))\
+                      | #Factorization(ZK!!pp) eq 1];
+    for pp in inert_primes do
+      if is_paritious then
+        // For paritious forms, use the existing approach
+        if not IsZero(Coefficient(f, pp)) then
+          possibly_dihedral := false;
+          break;
+        end if;
+      else
+        // For nonparitious forms, check if a_nu = 0 where nu is the EltCoeff 
+        // corresponding to the ideal pp
+        nu := IdealToRep(M, pp);
+        bb := IdealToNarrowClassRep(M, pp);
+        if not IsZero(Coefficient(f, bb, nu)) then
+          possibly_dihedral := false;
+          break;
+        end if;
+      end if;
+    end for;
+    if possibly_dihedral then
+      return true;
+    end if;
+  end for;
+  return false;
+end intrinsic;
+
+
 
 intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> List
   {
@@ -1051,142 +1214,6 @@ intrinsic ThetaSeries(Mk::ModFrmHilD, psi::GrpHeckeElt) -> ModFrmHilDElt
   // requires a genuine field, crashing with a type mismatch otherwise.
   coeff_ring := (#nonzero_coeff_vals eq 0) select Rationals() else FieldOfFractions(Parent(StrongAdd(nonzero_coeff_vals)));
   return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : coeff_ring := coeff_ring);
-end intrinsic;
-
-intrinsic ThetaSeries(Mk::ModFrmHilD, psi::HMFGrossenchar) -> ModFrmHilDElt
-  {
-    Given a totally real field F, a quadratic extension K of F,
-    and a finite order Hecke character of K, compute the associated theta series.
-  }
-  M := Parent(Mk);
-  F := BaseField(M);
- 
-  ZF := Integers(F);
-  prec := Precision(M);
-  K := NumberField(Order(Modulus(psi))); 
-
-  // TODO abhijitm this is known (9/20/25) to fail in a lot of nonparitious
-  // cases due to field coercion issues. I'm hoping that the pending migration
-  // to FldNumEmb will resolve them, but until then use with caution.
-  //
-  // You might be able to get away with calling #PossibleGrossenchars, which should
-  // work more often, and using it as an upper bound for the dimension of CM forms.
-  paritious_weight := IsParitious(Weight(Mk));
-  if not paritious_weight then
-    X := Parent(psi);
-    require NarrowClassNumber(F) eq 1 : "Nonparitious forms are only implemented for
-      fields with narrow class number one";
-    assert IsSubfield(F, K);
-    K_rel := RelativeField(F, K);
-    // K/F is CM and tau is the nontrivial automorphism
-    assert Degree(K_rel) eq 2;
-    tau := Automorphisms(K_rel)[2];
-    k := Weight(Mk);
-    k0 := Max(k);
-    lies_over := OrderedPlacesOfCMField(K, F);
-    shifted_half_weight := [(k0 - k[lies_over[i]]) / 2 : i in [1..#k]];
-    custom_weight := [
-      <Integers()!(X`Weight[i][1] - shifted_half_weight[i]),
-      Integers()!(X`Weight[i][2] - shifted_half_weight[i])> :
-      i in [1 .. Degree(F)]];
-    // TODO abhijitm somehow some errors don't occur when this
-    // is X`BaseField instead of the splitting field.
-    L := SplittingField(X`BaseField);
-  end if;
-
-  // We create an associative array indexed by prime ideals pp up to 
-  // Precision(Parent(Mk)) and populate them with traces associated to psi.
-  coeffs_by_pp := AssociativeArray();
-  pis_by_pp := AssociativeArray();
-  for pp in PrimeIdeals(M) do
-    fact := Factorization(Integers(K) !! pp);
-    g := #fact;
-    d := InertiaDegree(pp);
-    if paritious_weight then
-      if g eq 2 then
-        coeffs_by_pp[pp] := StrongAdd([* psi(fact[1][1]), psi(fact[2][1]) *]);
-      elif fact[1][2] ne 1 then
-        coeffs_by_pp[pp] := psi(fact[1][1]);
-      else
-        coeffs_by_pp[pp] := 0;
-      end if;
-    else
-      if g eq 2 then
-        _, lambda_1 := IsNarrowlyPrincipal(fact[1][1]);
-        lambdas := [lambda_1, tau(lambda_1)];
-        pi := F!(&*lambdas);
-        assert Norm(pi) eq Norm(pp);
-        psi_evals := [* Evaluate(psi, fact[i][1] : custom_weight:=custom_weight, gen:=lambdas[i])
-                  : i in [1..2] *];
-        coeffs_by_pp[pp] := L!StrongAdd(psi_evals);
-      elif fact[1][2] ne 1 then
-        _, lambda := IsNarrowlyPrincipal(fact[1][1]);
-        lambdas := [lambda, tau(lambda)];
-        pi := F!(&*lambdas);
-        assert Norm(pi) eq Norm(pp);
-        coeffs_by_pp[pp] := L!Evaluate(psi, fact[1][1] : custom_weight:=custom_weight, gen:=lambda);
-      else
-        coeffs_by_pp[pp] := L!0;
-        pi := codifferent_generator(Parent(Mk))^-1 * IdealToRep(M, pp);
-      end if;
-      pis_by_pp[pp] := pi;
-    end if;
-  end for;
-
-  if paritious_weight then
-    nonzero_coeff_vals := [* v : pp -> v in coeffs_by_pp | v ne 0 *];
-    coeff_ring := (#nonzero_coeff_vals eq 0) select Rationals() else Parent(StrongAdd(nonzero_coeff_vals));
-    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : coeff_ring := coeff_ring);
-  else
-    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : 
-                                                    from_a_pp:=false,
-                                                    mfh_reps:=pis_by_pp,
-                                                    coeff_ring:=L
-                                                  );
-  end if;
-end intrinsic;
-
-intrinsic ProbabilisticDihedralTest(f::ModFrmHilDElt) -> BoolElt
-  {returns true if this form could be dihedral, false if it cannot be}
-  Mk := Parent(f);
-  M := Parent(Mk);
-  F := BaseField(Mk);
-  N := Level(Mk);
-  k := Weight(Mk);
-  BOUND := 100;
-  is_paritious := IsParitious(k);
-
-  Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(F)]);
-  for K in Ks do
-    possibly_dihedral := true;
-    ZK := Integers(K);
-
-    // inert primes stores the inert primes of norm at most BOUND
-    inert_primes := [pp : pp in PrimesUpTo(BOUND, F : coprime_to:=Discriminant(ZK))\
-                      | #Factorization(ZK!!pp) eq 1];
-    for pp in inert_primes do
-      if is_paritious then
-        // For paritious forms, use the existing approach
-        if not IsZero(Coefficient(f, pp)) then
-          possibly_dihedral := false;
-          break;
-        end if;
-      else
-        // For nonparitious forms, check if a_nu = 0 where nu is the EltCoeff 
-        // corresponding to the ideal pp
-        nu := IdealToRep(M, pp);
-        bb := IdealToNarrowClassRep(M, pp);
-        if not IsZero(Coefficient(f, bb, nu)) then
-          possibly_dihedral := false;
-          break;
-        end if;
-      end if;
-    end for;
-    if possibly_dihedral then
-      return true;
-    end if;
-  end for;
-  return false;
 end intrinsic;
 
 intrinsic DebugPrunedSetComparison(K::Fld, psi::GrpHeckeElt, k_hmf::SeqEnum[RngIntElt]) -> BoolElt, BoolElt, RngIntElt, RngIntElt, RngOrdIdl, GrpHeckeElt

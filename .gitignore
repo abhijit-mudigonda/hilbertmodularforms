@@ -19,3 +19,7 @@ WeightOneDihedralRestriction/
 WeightOneDihedralRestriction_pretonight_archive_*/
 scratch_timing*/
 local_launch_*.sh
+
+Mestre/MestreConic12.m
+Mestre/MestreCubic12.m.txt
+WorkInProgress/X0p31_Qsqrt5.pdf
