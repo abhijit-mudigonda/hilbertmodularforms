@@ -13,3 +13,9 @@ ModFrmHil/spec~
 *.ipynb
 ModFrmHilD/vdgV.m
 *.html
+
+# EC search campaign output/scratch (run artifacts, not source)
+WeightOneDihedralRestriction/
+WeightOneDihedralRestriction_pretonight_archive_*/
+scratch_timing*/
+local_launch_*.sh
