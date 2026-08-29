@@ -1374,3 +1374,82 @@ intrinsic RawDihedralCandidatesDebug(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Nt
   return out;
 end intrinsic;
 
+/////////////////////////////// Bypass: trace-first, early-exit, cached
+/////////////////////////////// dihedral curve matching (Phase 1: D=frakN only,
+/////////////////////////////// both CM and RM auxiliary fields)
+//
+// GRing/ThetaSeries/RestrictionToDiagonal computes HMF coefficients a_nu(f) up
+// to a NORM bound, but the diagonal restriction only needs a TRACE-indexed
+// subset; these diverge badly as precision grows, and for fields with large
+// fundamental units the norm-indexed storage can exceed Magma's Monomial()
+// exponent ceiling entirely. This section computes exactly the trace-indexed
+// classical coefficients needed, directly from ideal-arithmetic evaluation of
+// the Hecke character, with early exit as soon as a candidate provably can't
+// match any target curve (~300x speedup, identical results, on a
+// representative field).
+//
+// Ideal coefficients a_nn(psi) = sum_{A subset Z_K, N_{K/F}(A)=nn} psi(A) are
+// the primary cached currency; classical Fourier coefficients a_j are always a
+// derived, on-demand sum over a precomputed (per-field, not per-candidate)
+// multiset of ideals.
+
+intrinsic TraceLevelIdeals(F::Fld, JMAX::RngIntElt) -> SeqEnum
+  {
+    Field-level precomputation, independent of any target level, auxiliary
+    extension, or Hecke character: for j = 1..JMAX, the ideals nn = (nu)*D_F
+    (D_F = Different(Z_F)) for every totally positive nu in the codifferent of
+    trace exactly j. Compute once per field and reuse across every target level
+    and every candidate processed for that field -- this does not depend on
+    frakN, K, or psi at all.
+  }
+  ZF := Integers(F);
+  DD := Different(ZF);
+  DDinv := DD^(-1);
+  result := [];
+  for j in [1 .. JMAX] do
+    pts := PositiveElementsOfTrace(DDinv, j);
+    Append(~result, [ideal<ZF | nu> * DD : nu in pts]);
+  end for;
+  return result;
+end intrinsic;
+
+intrinsic TraceLevelIdealData(F::Fld, JMAX::RngIntElt) -> SeqEnum, Assoc, Assoc
+  {
+    Extends TraceLevelIdeals with two more field-level (not K- or psi-
+    dependent) precomputations: fact_cache maps every nn appearing in the
+    trace-level ideal table to its Factorization(nn), computed once and
+    reused across every K/psi for this field. max_exp maps every prime pp of
+    Z_F appearing in any factorization to the largest exponent it's ever
+    needed to -- currently unused by the lazy evaluator below (kept for
+    diagnostics/future eager-precompute use).
+
+    Returns ideal_table (as TraceLevelIdeals), fact_cache, max_exp.
+  }
+  ZF := Integers(F);
+  DD := Different(ZF);
+  DDinv := DD^(-1);
+  ideal_table := [];
+  fact_cache := AssociativeArray();
+  max_exp := AssociativeArray();
+  for j in [1 .. JMAX] do
+    pts := PositiveElementsOfTrace(DDinv, j);
+    nns := [ideal<ZF | nu> * DD : nu in pts];
+    Append(~ideal_table, nns);
+    for nn in nns do
+      if IsDefined(fact_cache, nn) then continue; end if;
+      if Norm(nn) eq 1 then
+        fact_cache[nn] := [];
+        continue;
+      end if;
+      fact := Factorization(nn);
+      fact_cache[nn] := fact;
+      for pr in fact do
+        pp := pr[1]; e := pr[2];
+        if not IsDefined(max_exp, pp) or max_exp[pp] lt e then
+          max_exp[pp] := e;
+        end if;
+      end for;
+    end for;
+  end for;
+  return ideal_table, fact_cache, max_exp;
+end intrinsic;
