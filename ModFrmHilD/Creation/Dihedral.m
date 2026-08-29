@@ -90,8 +90,27 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilte
       infinite order Grossencharacters";
   K := X`BaseField;
   require IsSubfield(F, K) : "F is not a subfield of K";
-
   N_f, N_oo := Modulus(X);
+  S := HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter);
+  return PruneConjugatePairs(S, K, F, N_f, N_oo);
+end intrinsic;
+
+intrinsic PruneConjugatePairs(S::SetEnum, K::Fld, F::Fld, N_f::RngOrdIdl, N_oo::SeqEnum[RngIntElt]) -> SetEnum
+  {
+    input:
+      S - A set of HMFGrossenchar objects, all of modulus (N_f, N_oo) over K
+      K, F - K/F a quadratic extension, N_f stable under the Gal(K/F) action
+    returns:
+      The subset of S consisting of characters which are not self-conjugate
+      under the K/F action, one representative from each conjugate pair.
+
+    Shared tail of PrunedGrossencharsSet (S built by materializing
+    HeckeCharacterGroup(N_f,N_oo) in full) and the tight per-divisor search
+    in PossibleGrossencharsOfRelQuadExt (S built without ever materializing
+    the full group) -- both need the same conjugate-pairing logic on
+    whatever raw survivor set they arrive at.
+  }
+  require IsSubfield(F, K) : "F is not a subfield of K";
   H := HeckeCharacterGroup(N_f, N_oo);
 
   // If H is trivial then the ray class group is trivial and the trivial
@@ -101,21 +120,21 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilte
     return {};
   end if;
 
-  S := HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter);
-
   G, mp := RayClassGroup(N_f, N_oo);
   gens := Generators(G);
   idl_gens := [mp(g) : g in gens];
-  lcm_order := LCM([Order(g) : g in gens]); 
+  // ConjugateIdeal(K,F,I) depends only on (K,F,idl_gens), not on chi --
+  // hoisted out of the while loop below rather than recomputed once per
+  // surviving character.
+  conj_idl_gens := [ConjugateIdeal(K, F, I) : I in idl_gens];
+  lcm_order := LCM([Order(g) : g in gens]);
   L := CyclotomicField(lcm_order);
 
   chi_to_evals := AssociativeArray();
   evals_to_chi := AssociativeArray();
 
-  pairs := [];
-
   for chi in S do
-    chi_evals := [StrongCoerce(L, chi(I)) : I in idl_gens]; 
+    chi_evals := [StrongCoerce(L, chi(I)) : I in idl_gens];
     chi_to_evals[chi`RayClassChar] := chi_evals;
     evals_to_chi[chi_evals] := chi;
   end for;
@@ -125,7 +144,7 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilte
   while not IsEmpty(chis) do
     chi := Rep(chis);
     chi_evals := chi_to_evals[chi`RayClassChar];
-    conj_chi_evals := [StrongCoerce(L, chi(ConjugateIdeal(K, F, I))) : I in idl_gens];
+    conj_chi_evals := [StrongCoerce(L, chi(J)) : J in conj_idl_gens];
     // include chi in the set of pruned chis if
     // chi isn't self-conjugate
     if chi_evals ne conj_chi_evals then
