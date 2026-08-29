@@ -1584,3 +1584,207 @@ procedure ThetaCoeffAtIdealCached(K, ZKabs, psi, condAbs, nn, fact_cache,
   nn_cache[nn] := result;
 end procedure;
 
+intrinsic CheckDihedralCandidateAgainstCurves(ctx::Tup, psi_ctx::Tup, caches::Tup, dd::RngOrdIdl, ratnf::List
+    : JMAX := 60) -> RngIntElt, FldRatElt, RngIntElt, MonStgElt, Tup
+  {
+    Phase 1+2+3: incrementally computes the classical restriction coefficients
+    a_j for j=1..JMAX using ideal_table (from TraceLevelIdealData), locking a
+    candidate scalar per target curve in ratnf as soon as enough data
+    determines it, and killing curves (and returning early) as soon as they
+    deviate. No chi_D/IsCompatibleWeight construction -- an inadmissible psi
+    doesn't correspond to a genuine weight-[1,1] form and is expected to
+    simply fail to match anything within the first few trace levels, at the
+    same negligible cost as any other non-match (validated against the
+    F41/N=17 known-negative case).
+
+    A curve surviving alive and locked all the way to JMAX (without ever
+    being ruled out) is reported "matched" -- there is no separate
+    "confirmed N times past locking" threshold; the caller's choice of JMAX
+    IS the certificate (see RawDihedralCurveMatch), mirroring how the old
+    pipeline trusted a single IsConsistent check over all NMAX available
+    coefficients rather than requiring extra redundant agreement beyond that.
+
+    dd is the oldform divisor (dd=1*ZF for Phase 1's direct D=frakN case;
+    dd properly dividing frakN/D otherwise -- an Inclusion-style oldform
+    lift, see Inclusion, Elements.m:461/Components.m:789 and
+    RawDihedralCurveMatch for why dd need NOT be narrowly principal). The
+    oldform's coefficient at an ideal nn (in the trivial-bb component) is
+    a_(nn/dd)(f) when dd | nn, else the ideal doesn't contribute at all --
+    mirrored directly below by evaluating ThetaCoeffAtIdealCached at nn/dd
+    instead of nn, skipping nn's not divisible by dd.
+
+    ctx := <ideal_table, fact_cache> -- field-level, read-only, shared across
+    every K/psi/dd (see RawDihedralCurveMatch).
+    psi_ctx := <K, ZKabs, psi, condAbs> -- per-(K,psi), read-only.
+    caches := <pp_splitting_cache, psi_val_cache, a_pe_cache, nn_cache> --
+    mutable, lazily populated (see ThetaCoeffAtIdealCached for why lazy, not
+    eager). Threaded through via return-and-reassign since intrinsics can't
+    take ~ parameters -- the caller reuses the returned caches across the
+    whole dd-loop (pp_splitting_cache/psi_val_cache/a_pe_cache further across
+    every psi for a fixed K, and pp_splitting_cache further still across
+    every K).
+
+    Returns <matched_curve_index (0 if none), scalar (0 if none), the trace
+    level j at which the outcome was decided (JMAX for "matched" or
+    "inconclusive"), outcome, updated caches> where outcome is one of
+    "matched", "ruled_out", "non_rational", "inconclusive".
+  }
+  ideal_table, fact_cache := Explode(ctx);
+  K, ZKabs, psi, condAbs := Explode(psi_ctx);
+  pp_splitting_cache, psi_val_cache, a_pe_cache, nn_cache := Explode(caches);
+  ncurves := #ratnf;
+  alive := [true : i in [1 .. ncurves]];
+  locked := [false : i in [1 .. ncurves]];
+  scalars := [Rationals() | 0 : i in [1 .. ncurves]];
+  confirmed := [0 : i in [1 .. ncurves]];
+  last_j := 0;
+
+  ddIsTrivial := Norm(dd) eq 1;
+  for j in [1 .. JMAX] do
+    vj := 0;
+    for nn in ideal_table[j] do
+      if ddIsTrivial then
+        nnDD := nn;
+      else
+        if not IsIntegral(nn/dd) then continue; end if;
+        nnDD := Order(nn) !! (nn/dd);
+      end if;
+      ThetaCoeffAtIdealCached(K, ZKabs, psi, condAbs, nnDD, fact_cache,
+        ~pp_splitting_cache, ~psi_val_cache, ~a_pe_cache, ~nn_cache, ~contrib);
+      vj +:= contrib;
+    end for;
+    caches := <pp_splitting_cache, psi_val_cache, a_pe_cache, nn_cache>;
+    if not IsCoercible(RationalField(), vj) then
+      return 0, Rationals()!0, j, "non_rational", caches;
+    end if;
+    vjQ := Rationals() ! vj;
+    last_j := j;
+
+    any_alive := false;
+    for ci in [1 .. ncurves] do
+      if not alive[ci] then continue; end if;
+      aij := Rationals() ! Coefficient(ratnf[ci], j);
+      if not locked[ci] then
+        if vjQ eq 0 and aij eq 0 then
+          ; // uninformative, keep going
+        elif aij eq 0 then
+          alive[ci] := false; // vj != 0 but a_j = 0: impossible for any scalar
+        else
+          c := vjQ / aij;
+          if c eq 0 then
+            alive[ci] := false;
+          else
+            scalars[ci] := c; locked[ci] := true; confirmed[ci] := 1;
+          end if;
+        end if;
+      else
+        if vjQ ne scalars[ci] * aij then
+          alive[ci] := false;
+        else
+          confirmed[ci] +:= 1;
+        end if;
+      end if;
+      if alive[ci] then any_alive := true; end if;
+    end for;
+
+    if not any_alive then
+      return 0, Rationals()!0, j, "ruled_out", caches;
+    end if;
+  end for;
+  // No mid-walk "matched" shortcut: surviving locked-in agreement across the
+  // ENTIRE JMAX budget is the certificate (mirrors the old pipeline trusting
+  // a single IsConsistent check over all NMAX coefficients). The caller must
+  // choose JMAX large enough that this is meaningful (see RawDihedralCurveMatch).
+  for ci in [1 .. ncurves] do
+    if alive[ci] and locked[ci] then
+      return ci, scalars[ci], last_j, "matched", caches;
+    end if;
+  end for;
+  return 0, Rationals()!0, last_j, "inconclusive", caches;
+end intrinsic;
+
+intrinsic RawDihedralCurveMatch(F::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt, ratnf::List
+    : JMAX := 0, JMAXMargin := 10) -> List
+  {
+    JMAX=0 (default) auto-computes as Dimension(CuspForms(Ntgt)) + JMAXMargin
+    -- plays the role of the old pipeline's own
+    min_needed := Max(ecdim, Norm(mm)) + 5 threshold: enough independent
+    coefficients to trust a match without wasting time on more. Re-validated
+    against the full 121-hit historical comprehensive test: 40/40 (disc,N)
+    pairs still reproduce exactly with this auto-computed JMAX. Pass JMAX
+    explicitly to override.
+
+    Phase 1+2+3 orchestrator: for every auxiliary quadratic extension K of
+    conductor dividing frakN (both CM and RM), every surviving primitive
+    character from TrivialDiagonalRestrictionGrossenchars +
+    PrunedGrossencharsSetRaw (reused as-is -- the 133de2c per-divisor search,
+    do not regress to one large modulus), and every dd | frakN/D (dd=1*ZF is
+    the direct D=frakN match; dd!=1*ZF is an Inclusion-style oldform lift,
+    see Inclusion, Elements.m:461/Components.m:789), checks against every
+    curve in ratnf via CheckDihedralCandidateAgainstCurves with early exit.
+
+    dd need NOT be narrowly principal. Inclusion's multi-component wrapper
+    (Elements.m:461) shows that for any component bb of the auxiliary form
+    f_D, Inclusion produces iotamf[mmbb] for mmbb = NarrowClassRepresentative
+    (mm*bb), and exactly one bb (narrowly equivalent to mm^-1) lands in the
+    trivial output component RestrictionToDiagonal restricts from.
+    CuspEigenformFromCoeffsAtPrimes (CuspFormFromEigs.m:223-228) computes
+    every integral ideal's coefficient via the same class-agnostic a_nn(psi)
+    formula regardless of narrow class -- so the oldform's trivial-component
+    coefficient at nn is simply a_(nn/dd)(psi) whenever dd | nn, via the same
+    ThetaCoeffAtIdealCached formula used everywhere else here. Validated
+    against a real non-narrowly-principal case (F=Q(sqrt3), N=26, mm of norm
+    2) and against the real Inclusion(f_D, Mk_N, mm)'s trivial component:
+    exact agreement on 14/14 raw coefficients (j=1..4, all nn with dd | nn).
+
+    Caching is hoisted to the coarsest scope each piece is valid at, populated
+    lazily (see ThetaCoeffAtIdealCached): ideal_table/fact_cache/max_exp once
+    per field; pp_splitting_cache across every psi for a fixed K;
+    psi_val_cache/a_pe_cache/nn_cache reset per (K,psi), shared across every
+    dd tried for it.
+
+    Returns a List of <K, D_norm, dd_norm, matched_curve_index, scalar,
+    died_at, outcome> for every candidate that reached a "matched" outcome.
+  }
+  ZF := Integers(F);
+  if JMAX eq 0 then
+    JMAX := Dimension(CuspForms(Ntgt)) + JMAXMargin;
+  end if;
+  ideal_table, fact_cache, max_exp := TraceLevelIdealData(F, JMAX);
+  Ks := QuadraticExtensionsWithConductor(frakN, [1 .. Degree(F)]);
+  matches := [* *];
+  ctx := <ideal_table, fact_cache>;
+  for K in Ks do
+    K_abs := AbsoluteField(K);
+    ZKabs := Integers(K_abs);
+    ZK := Integers(K);
+    rel_disc := Discriminant(ZK);
+    S := TrivialDiagonalRestrictionGrossenchars(K, frakN, Ntgt);
+    if #S eq 0 then continue; end if;
+    S := PrunedGrossencharsSetRaw(S, K_abs, F);
+
+    pp_splitting_cache := AssociativeArray();
+
+    for psi0 in S do
+      psi := AssociatedPrimitiveCharacter(psi0);
+      psi_cond_F := ZF !! Norm(ZK !! Conductor(psi));
+      D := ZF !! (psi_cond_F * rel_disc);
+      if not IsIntegral(frakN/D) then
+        continue; // D does not divide frakN: psi's theta series can't embed at all
+      end if;
+      condAbs := ZKabs !! Conductor(psi);
+
+      psi_ctx := <K, ZKabs, psi, condAbs>;
+      caches := <pp_splitting_cache, AssociativeArray(), AssociativeArray(), AssociativeArray()>;
+      for dd in Divisors(ZF !! (frakN/D)) do
+        ci, scalar, died_at, outcome, caches := CheckDihedralCandidateAgainstCurves(
+          ctx, psi_ctx, caches, dd, ratnf : JMAX := JMAX);
+        if outcome eq "matched" then
+          Append(~matches, <K, Norm(D), Norm(dd), ci, scalar, died_at, outcome>);
+        end if;
+      end for;
+      pp_splitting_cache := caches[1]; // carry forward across psi's for this K
+    end for;
+  end for;
+  return matches;
+end intrinsic;
