@@ -1453,3 +1453,134 @@ intrinsic TraceLevelIdealData(F::Fld, JMAX::RngIntElt) -> SeqEnum, Assoc, Assoc
   end for;
   return ideal_table, fact_cache, max_exp;
 end intrinsic;
+
+// Ensures cache[pp] is populated with <caseType, P1, P2> (P2 unused unless
+// caseType eq "split") for the prime pp of Z_F, in the relative extension K.
+// Plain procedure (not intrinsic) since it needs ~ reference semantics to
+// mutate the cache in place; called only from within this file. Shared across
+// every psi for a fixed K, since the splitting type of pp in K does not depend
+// on psi at all.
+procedure GetPrimeSplitting(K, ZKabs, pp, ~cache)
+  if IsDefined(cache, pp) then
+    return;
+  end if;
+  // Factor in the absolute order ZKabs, not the relative order -- see
+  // MaximalIdealsOfNormDividingAbs's docstring; here the relative-order
+  // route was also observed to report the wrong splitting type outright
+  // (differential testing on m=10/N=43), not just throw on coercion.
+  factK := Factorization(ZKabs !! pp);
+  g := #factK;
+  if g eq 2 then
+    entry := <"split", factK[1][1], factK[2][1]>;
+  elif factK[1][2] ne 1 then
+    entry := <"ramified", factK[1][1], 0>;
+  else
+    entry := <"inert", factK[1][1], 0>;
+  end if;
+  cache[pp] := entry;
+end procedure;
+
+// Caches a single raw evaluation psi(P), keyed by the ZKabs prime P -- the
+// expensive primitive (~0.68ms/call, dwarfing Factorization(nn)). Kept as
+// its own cache layer, separate from a_pe_cache below, so a newly-observed
+// exponent for an already-seen prime reuses the cached base value.
+procedure GetPsiVal(psi, P, ~psi_val_cache, ~result)
+  if IsDefined(psi_val_cache, P) then
+    result := psi_val_cache[P];
+    return;
+  end if;
+  result := psi(P);
+  psi_val_cache[P] := result;
+end procedure;
+
+// Computes a_(pp^e)(psi) -- the single-prime local factor -- and caches it
+// keyed by <pp,e>, shared across every ideal nn processed for this (K,psi).
+// Mirrors what ExtendMultiplicatively gets for free when building a full HMF
+// coefficient table (nn and nn*qq share most prime-power factors, so each
+// shared (pp,e) contribution is computed once and reused), but without
+// needing an incremental table-build: Factorization(nn) is cheap for a
+// quadratic field, so re-factoring is fine as long as psi evaluation
+// (GetPsiVal) and the per-(pp,e) factor are cached.
+procedure GetLocalFactor(psi, condAbs, pp, e, ~pp_splitting_cache, ~psi_val_cache, ~a_pe_cache, ~result)
+  key := <pp, e>;
+  if IsDefined(a_pe_cache, key) then
+    result := a_pe_cache[key];
+    return;
+  end if;
+  caseType, P1, P2 := Explode(pp_splitting_cache[pp]);
+  if caseType eq "split" then
+    bad1 := Valuation(condAbs, P1) gt 0;
+    bad2 := Valuation(condAbs, P2) gt 0;
+    if bad1 and bad2 then
+      result := 0;
+    elif bad1 then
+      GetPsiVal(psi, P2, ~psi_val_cache, ~v2);
+      result := v2^e;
+    elif bad2 then
+      GetPsiVal(psi, P1, ~psi_val_cache, ~v1);
+      result := v1^e;
+    else
+      GetPsiVal(psi, P1, ~psi_val_cache, ~v1);
+      GetPsiVal(psi, P2, ~psi_val_cache, ~v2);
+      result := &+[v1^i * v2^(e-i) : i in [0 .. e]];
+    end if;
+  elif caseType eq "ramified" then
+    if Valuation(condAbs, P1) gt 0 then
+      result := 0;
+    else
+      GetPsiVal(psi, P1, ~psi_val_cache, ~v1);
+      result := v1^e;
+    end if;
+  else // inert
+    if Valuation(condAbs, P1) gt 0 then
+      result := 0;
+    elif IsOdd(e) then
+      result := 0;
+    else
+      GetPsiVal(psi, P1, ~psi_val_cache, ~v1);
+      result := v1^(e div 2);
+    end if;
+  end if;
+  a_pe_cache[key] := result;
+end procedure;
+
+// Computes a_nn(psi), using fact_cache where available (field-level, see
+// TraceLevelIdealData; only covers nn arising directly from ideal_table, the
+// dd=1 case -- for dd!=1, nn is really nn_orig/dd and gets factored fresh,
+// which is cheap for a quadratic field). Local factors are computed LAZILY
+// via GetPrimeSplitting/GetLocalFactor (memoized in
+// pp_splitting_cache/psi_val_cache/a_pe_cache) rather than eagerly
+// precomputed for every (pp,e) the (K,psi) could ever need.
+//
+// Measured, not assumed: an earlier version eagerly precomputed every
+// a_(pp^e)(psi) up front, which helped deep-surviving matches but hurt
+// everything else, since ~90% of candidates die within the first few trace
+// levels and never touch most primes (m=6/N=37 regressed 8s -> 14.26s under
+// eager precompute). Lazy/memoized only touches what a candidate's walk
+// actually needs, while still deduping psi(P) across the whole dd-loop for
+// a fixed (K,psi) (nn_cache is reset per (K,psi), see
+// CheckDihedralCandidateAgainstCurves).
+procedure ThetaCoeffAtIdealCached(K, ZKabs, psi, condAbs, nn, fact_cache,
+    ~pp_splitting_cache, ~psi_val_cache, ~a_pe_cache, ~nn_cache, ~result)
+  if IsDefined(nn_cache, nn) then
+    result := nn_cache[nn];
+    return;
+  end if;
+  if IsDefined(fact_cache, nn) then
+    fact := fact_cache[nn];
+  elif Norm(nn) eq 1 then
+    fact := [];
+  else
+    fact := Factorization(nn);
+  end if;
+  total := 1;
+  for pr in fact do
+    pp := pr[1]; e := pr[2];
+    GetPrimeSplitting(K, ZKabs, pp, ~pp_splitting_cache);
+    GetLocalFactor(psi, condAbs, pp, e, ~pp_splitting_cache, ~psi_val_cache, ~a_pe_cache, ~a_pe);
+    total := total * a_pe;
+  end for;
+  result := total;
+  nn_cache[nn] := result;
+end procedure;
+
