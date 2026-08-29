@@ -422,6 +422,54 @@ intrinsic MaximalIdealsOfNormDividing(ZK::RngOrd, Mideal::RngOrdIdl) -> SeqEnum
   return Cs;
 end intrinsic;
 
+intrinsic MaximalIdealsOfNormDividingAbs(ZKabs::RngOrd, Mideal::RngOrdIdl) -> SeqEnum
+  {
+    Absolute-order-native version of MaximalIdealsOfNormDividing: same
+    per-prime split/ramified/inert logic and maximal-divisor-set semantics,
+    but factors each prime p of F directly in the absolute order ZKabs
+    (via ZKabs !! p) instead of the relative order ZK, with the result
+    coerced across afterward.
+
+    For K whose relative defining polynomial is non-integral, the
+    relative-order route is unreliable: empirically (m=6, N=56/57/80/84/88/90)
+    it can throw "Ideal is fractional" on coercion to ZKabs, or silently
+    return a wrong non-integral ideal (Magma's AbsoluteField exposes no
+    isomorphism to coerce correctly). Factoring in ZKabs directly sidesteps
+    the relative order, and the coercion, entirely.
+  }
+  local_choices := [* *];
+  for pe in Factorization(Mideal) do
+    p := pe[1]; e := pe[2];
+    pK_fact := Factorization(ZKabs !! p);
+    options := [];
+    if #pK_fact eq 1 and pK_fact[1][2] eq 2 then
+      P := pK_fact[1][1];
+      Append(~options, P^e);
+    elif #pK_fact eq 1 and pK_fact[1][2] eq 1 then
+      P := pK_fact[1][1];
+      Append(~options, P^(e div 2));
+    elif #pK_fact eq 2 then
+      P := pK_fact[1][1]; Pp := pK_fact[2][1];
+      for a in [0 .. e] do
+        Append(~options, P^a * Pp^(e-a));
+      end for;
+    end if;
+    Append(~local_choices, options);
+  end for;
+
+  Cs := [1*ZKabs];
+  for opts in local_choices do
+    newCs := [];
+    for c in Cs do
+      for o in opts do
+        Append(~newCs, c*o);
+      end for;
+    end for;
+    Cs := newCs;
+  end for;
+  return Cs;
+end intrinsic;
+
 intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt::RngIntElt) -> List
   {
     Weight [1,1] fast path: K a quadratic extension of the totally real
@@ -474,8 +522,9 @@ intrinsic TrivialDiagonalRestrictionGrossenchars(K::Fld, frakN::RngOrdIdl, Ntgt:
   a_gens := [Integers()!(g @ mUz) : g in Generators(Uz)];
   filter := [<Integers(K_abs)!!ideal<ZF|a>, QuadraticCharacter(ideal<ZF|a>, K)> : a in a_gens];
 
-  Cs := MaximalIdealsOfNormDividing(ZK, Mideal);
-  Cs_abs := [Integers(K_abs) !! C : C in Cs];
+  // Absolute-order variant -- see MaximalIdealsOfNormDividingAbs's docstring
+  // for why the relative-order route is unreliable here.
+  Cs_abs := MaximalIdealsOfNormDividingAbs(Integers(K_abs), Mideal);
 
   S := [* *];
   for C_abs in Cs_abs do
@@ -1324,3 +1373,4 @@ intrinsic RawDihedralCandidatesDebug(GRing::ModFrmHilDGRng, frakN::RngOrdIdl, Nt
   end for;
   return out;
 end intrinsic;
+
