@@ -32,6 +32,8 @@ if not assigned MAX_M then MAX_M := "100"; end if;
 if not assigned DISC_BOUND then DISC_BOUND := "100"; end if;
 if not assigned HMF_PRECISION then HMF_PRECISION := "600"; end if;
 if not assigned SKIP_PAIRS then SKIP_PAIRS := ""; end if;
+if not assigned M_STRIDE then M_STRIDE := "1"; end if;
+if not assigned M_RESIDUE then M_RESIDUE := "0"; end if;
 
 TARGET_LO := StringToInteger(TARGET_LO);
 TARGET_HI := StringToInteger(TARGET_HI);
@@ -39,6 +41,8 @@ MIN_M := StringToInteger(MIN_M);
 MAX_M := StringToInteger(MAX_M);
 DISC_BOUND := StringToInteger(DISC_BOUND);
 HMF_PRECISION := StringToInteger(HMF_PRECISION);
+M_STRIDE := StringToInteger(M_STRIDE);
+M_RESIDUE := StringToInteger(M_RESIDUE);
 
 skip_pairs := {};
 if SKIP_PAIRS ne "" then
@@ -53,9 +57,10 @@ k11 := [1,1];
 
 OUT_DIR := "WeightOneDihedralRestriction";
 System("mkdir -p " * OUT_DIR);
-OUT_CSV := Sprintf("%o/ec_search_v2_m%o-%o_N%o-%o.csv", OUT_DIR, MIN_M, MAX_M, TARGET_LO, TARGET_HI);
-LOG_FILE := Sprintf("%o/ec_search_v2_m%o-%o_N%o-%o.log", OUT_DIR, MIN_M, MAX_M, TARGET_LO, TARGET_HI);
-CHECKPOINT_FILE := Sprintf("%o/ec_search_v2_m%o-%o_N%o-%o.checkpoint", OUT_DIR, MIN_M, MAX_M, TARGET_LO, TARGET_HI);
+OUT_TAG := (M_STRIDE gt 1) select Sprintf("m%o-%o_r%oof%o", MIN_M, MAX_M, M_RESIDUE, M_STRIDE) else Sprintf("m%o-%o", MIN_M, MAX_M);
+OUT_CSV := Sprintf("%o/ec_search_v2_%o_N%o-%o.csv", OUT_DIR, OUT_TAG, TARGET_LO, TARGET_HI);
+LOG_FILE := Sprintf("%o/ec_search_v2_%o_N%o-%o.log", OUT_DIR, OUT_TAG, TARGET_LO, TARGET_HI);
+CHECKPOINT_FILE := Sprintf("%o/ec_search_v2_%o_N%o-%o.checkpoint", OUT_DIR, OUT_TAG, TARGET_LO, TARGET_HI);
 COVERAGE_FILE := Sprintf("%o/curve_coverage.csv", OUT_DIR);
 
 procedure Log(msg)
@@ -181,16 +186,21 @@ procedure GetECSpace(N, ~ec_cache, ~ratnf_out, ~dim_out)
 end procedure;
 
 // ---------------- enumerate real quadratic fields with |disc| <= DISC_BOUND ----------------
-field_discs := [];
+// Interleaving is applied by POSITION in the squarefree-m list, not by m mod
+// M_STRIDE directly -- squarefree numbers are never 0 mod 4, so filtering by
+// raw residue mod an M_STRIDE divisible by 4 (e.g. 8) would silently starve
+// the residue classes 0 and M_STRIDE/2 of all work.
+all_field_discs := [];
 for m in [MIN_M..MAX_M] do
   if IsSquarefree(m) then
     Fm := QuadraticField(m);
     d := Discriminant(Integers(Fm));
     if d le DISC_BOUND then
-      Append(~field_discs, m);
+      Append(~all_field_discs, m);
     end if;
   end if;
 end for;
+field_discs := [all_field_discs[i] : i in [1..#all_field_discs] | ((i-1) mod M_STRIDE) eq M_RESIDUE];
 Log(Sprintf("=== EC search v2 (raw-GrpHeckeElt fast path, curve-coverage tracking): target levels [%o,%o], %o fields (disc<=%o), precision=%o ===",
   TARGET_LO, TARGET_HI, #field_discs, DISC_BOUND, HMF_PRECISION));
 Log(Sprintf("field list (squarefree m): %o", field_discs));
