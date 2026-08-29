@@ -618,6 +618,6 @@ intrinsic DefaultCoefficientRing(Mk::ModFrmHilD) -> FldNum
   // by default throughout this codebase rather than having to waffle?
   d := Order(Mk`Character);
   NebCharField := (d le 2) select Rationals() else CyclotomicField(Order(Mk`Character));
-  Mk`DefaultCoefficientRing := Compositum(NebCharField, UnitCharField);
+  Mk`DefaultCoefficientRing := SafeCompositum(NebCharField, UnitCharField);
   return Mk`DefaultCoefficientRing;
 end intrinsic;

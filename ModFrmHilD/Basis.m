@@ -46,9 +46,17 @@ intrinsic CuspFormBasis(
   GaloisDescent:=true,
   ViaTraceForm:=false,
   SaveAndLoad:=false,
-  StableOnly:=false
+  StableOnly:=false,
+  Prove:=true
   ) -> SeqEnum[ModFrmHilDElt]
-  {returns a basis for cuspspace of M of weight k}
+  {
+    returns a basis for cuspspace of M of weight k.
+
+    Prove is passed through to HeckeStabilityCuspBasis's `prove` parameter
+    on the Hecke-stability code path (weight 1, or nontrivial Dirichlet
+    restriction over a quadratic base field); set Prove:=false to trade
+    provable correctness for speed.
+  }
 
   if assigned Mk`CuspFormBasis then
     return Mk`CuspFormBasis;
@@ -67,7 +75,7 @@ intrinsic CuspFormBasis(
     if SaveAndLoad then
       Mk`CuspFormBasis := LoadOrBuildAndSave(Mk, HeckeStabilityCuspBasis, "_cusp_space");
     else
-      Mk`CuspFormBasis := HeckeStabilityCuspBasis(Mk : prove := false, stable_only:=StableOnly);
+      Mk`CuspFormBasis := HeckeStabilityCuspBasis(Mk : prove := Prove, stable_only:=StableOnly);
     end if;
   else
     ViaTraceForm and:= IsParallel(k) and GaloisDescent and (k[1] mod 2) eq 0;
@@ -348,18 +356,43 @@ intrinsic NewDihedralBasis(Mk::ModFrmHilD) -> SeqEnum[ModFrmHilDElt]
 end intrinsic;
 
 intrinsic OldDihedralBasis(Mk::ModFrmHilD) -> SeqEnum[ModFrmHilDElt]
-  {}
-  M := Parent(Mk);
+  {
+    Instead of rebuilding the Grossencharacter search from scratch at each
+    divisor D of N (each with its own QuadraticExtensionsWithConductor and
+    PossibleGrossencharsOfRelQuadExt calls), search once at N with
+    AllowImprimitive, then build each surviving imprimitive-conductor psi
+    at its own true level and lift it via Inclusion.
+  }
+  GRing := Parent(Mk);
   N := Level(Mk);
   k := Weight(Mk);
   chi := Character(Mk);
 
+  if IsDefined(GRing`QuadExtWithConductorCache, N) then
+    Ks := GRing`QuadExtWithConductorCache[N];
+  else
+    Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
+    GRing`QuadExtWithConductorCache[N] := Ks;
+  end if;
+  if not (IsParallel(k) and k[1] eq 1) then
+    Ks := [K : K in Ks | IsTotallyComplex(K)];
+  end if;
+
   old_dihedrals := [];
-  divisors := [D : D in Divisors(N) | (D ne N) and (D subset Conductor(chi))];
-  for D in divisors do
-    chi_D := Restrict(chi, D, [1 .. Degree(BaseField(Mk))]);
-    Mk_D := HMFSpace(M, D, k, chi_D);
-    old_dihedrals cat:= &cat[Inclusion(f, Mk) : f in NewDihedralBasis(Mk_D)];
+  for K in Ks do
+    ZK := Integers(K);
+    rel_disc := Discriminant(ZK);
+    psis := PossibleGrossencharsOfRelQuadExt(K, N, k, chi : GRing := GRing, AllowImprimitive := true);
+    for psi in psis do
+      Primitivize(psi);
+      D := Norm(ZK!!Conductor(psi)) * rel_disc;
+      if D ne N then
+        require D subset Conductor(chi) : "psi's native level is incompatible with Conductor(chi)";
+        chi_D := Restrict(chi, D, [1 .. Degree(BaseField(Mk))]);
+        Mk_D := HMFSpace(GRing, D, k, chi_D);
+        old_dihedrals cat:= Inclusion(ThetaSeries(Mk_D, psi), Mk);
+      end if;
+    end for;
   end for;
   return old_dihedrals;
 end intrinsic;

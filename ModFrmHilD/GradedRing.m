@@ -54,7 +54,9 @@ declare attributes ModFrmHilDGRng:
   RngMPol,
   Automorphisms, // Automorphism group of F
   LocalSquares, // Local squares stored for trace
-  CodifferentGenerator; // Totally positive generator of the codifferent
+  CodifferentGenerator, // Totally positive generator of the codifferent
+  QuadExtWithConductorCache, // Assoc: N -> Ks, from QuadraticExtensionsWithConductor
+  GrossencharsSetCache; // Assoc: N -> Sprint(k_hmf) -> K -> S, from PossibleGrossencharsOfRelQuadExt
 
 
  intrinsic IdealRepsMapDeterministic(F::FldNum, mp::Map) -> Assoc
@@ -368,6 +370,8 @@ intrinsic GradedRingOfHMFs(F::FldNum, prec::RngIntElt) -> ModFrmHilDGRng
 
   M`Spaces := AssociativeArray();
   M`LValues := AssociativeArray();
+  M`QuadExtWithConductorCache := AssociativeArray();
+  M`GrossencharsSetCache := AssociativeArray();
 
   // initialize - LocalSquares
   M`LocalSquares := AssociativeArray();

@@ -99,27 +99,45 @@ intrinsic cHMFGrossencharsTorsor(
   return X;
 end intrinsic;
 
-intrinsic HMFGrossencharsTorsorSet(X::HMFGrossencharsTorsor) -> SetEnum
+intrinsic HMFGrossencharsTorsorSet(X::HMFGrossencharsTorsor : RayClassFilter:=false) -> SetEnum
   {
-    Returns the set of HMFGrossenchar objects of this torsor. 
+    Returns the set of HMFGrossenchar objects of this torsor.
     This set will either be empty or have cardinality equal
-    to that of HeckeCharacterGroup(Modulus(X)).
+    to that of HeckeCharacterGroup(Modulus(X)), unless RayClassFilter is
+    supplied, in which case it is a subset of that.
+
+    RayClassFilter, if supplied, is a SeqEnum of tuples <I, target>
+    (I::RngOrdIdl coprime to Modulus(X), target a field element). Only
+    psi::GrpHeckeElt with psi(I) eq target for every pair are built into
+    HMFGrossenchar objects, skipping the expensive cHMFGrossenchar
+    construction for the rest. Only sound when IsFiniteOrder(X); see
+    PossibleGrossencharsOfRelQuadExt for the derivation.
   }
-  N_f, N_oo := Modulus(X); 
+  N_f, N_oo := Modulus(X);
   H := HeckeCharacterGroup(N_f, N_oo);
+  require RayClassFilter cmpeq false or IsFiniteOrder(X) : "RayClassFilter is only sound for\
+    finite order HMFGrossencharsTorsors";
   out := {};
   if IsNonempty(X) then
     for chi in Elements(H) do
+      if RayClassFilter cmpne false and not &and[StrongEquality(chi(tup[1]), tup[2]) : tup in RayClassFilter] then
+        continue;
+      end if;
       Include(~out, cHMFGrossenchar(X, chi));
     end for;
   end if;
-  
-  if not IsNonempty(X) then
-    require #out eq 0 : "Something has gone wrong - if the torsor is empty,\
-      the set should be empty";
+
+  if RayClassFilter cmpeq false then
+    if not IsNonempty(X) then
+      require #out eq 0 : "Something has gone wrong - if the torsor is empty,\
+        the set should be empty";
+    else
+      require #out eq #H : "Something has gone wrong, this set should be in 1-1 correspondence\
+        with characters of the corresponding ray class group.";
+    end if;
   else
-    require #out eq #H : "Something has gone wrong, this set should be in 1-1 correspondence\
-      with characters of the corresponding ray class group.";
+    require #out le #H : "Something has gone wrong, a filtered set cannot be larger\
+      than the corresponding ray class group.";
   end if;
   return out;
 end intrinsic;
@@ -407,8 +425,14 @@ intrinsic ClassGroupReps(X::HMFGrossencharsTorsor) -> SeqEnum[Tup]
       return [];
     end if;
     rcg, rc_map:= RayClassGroup(X`FiniteModulus, X`InfiniteModulus);
-    cg_gens := Generators(X`ClassGroup);
-    cg_gens_og := cg_gens;
+    // NB: Generators(X`ClassGroup) returns a SetEnum, whose iteration order
+    // is *not* guaranteed to match the canonical generator order
+    // (X`ClassGroup.1, X`ClassGroup.2, ...) that Eltseq decomposes elements
+    // with respect to. Evaluate(chi, I) below relies on cg_reps being
+    // indexed in that canonical order to match up with Eltseq(g), so we
+    // must build cg_gens_og explicitly in index order rather than via
+    // Generators(-).
+    cg_gens_og := [X`ClassGroup.i : i in [1 .. Ngens(X`ClassGroup)]];
     cg_reps_dict := AssociativeArray();
 
     // find a subset of ideal generators of the ray class group 
@@ -608,7 +632,11 @@ intrinsic Evaluate(chi::HMFGrossenchar, I::RngOrdIdl : custom_weight:=0, gen:=0,
     // We choose a generator for IJ^-1. 
     c, x := IsPrincipal(I * J^-1);
     require c : "Something has gone wrong, I * J^-1 should be principal";
-    chi_at_J := &*[chi`ClassRepEvals[cg_reps[i][2]]^(g_factzn_exps[i]) : i in [1 .. #cg_reps]];
+    // chi`ClassRepEvals[...] for different generators can live in genuinely
+    // different (but compatible) number field objects -- e.g. different
+    // radical extensions when generators have different orders -- so we
+    // can't rely on a plain &* to find a common universe for the sequence.
+    chi_at_J := StrongMultiply([* chi`ClassRepEvals[cg_reps[i][2]]^(g_factzn_exps[i]) : i in [1 .. #cg_reps] *]);
   end if;
 
   return StrongMultiply([*

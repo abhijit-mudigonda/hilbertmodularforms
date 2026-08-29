@@ -73,45 +73,68 @@ intrinsic ConjugateIdeal(K::Fld, F::Fld, N::RngOrdIdl) -> RngOrdIdl
   return Integers(K)!!(ideal<ZK_rel | conj_gens>);
 end intrinsic;
 
-intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld) -> SetEnum
+intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld : RayClassFilter:=false) -> SetEnum
   {
     input:
       X - A HMFGrossencharTorsor of finite order characters
         over a field K with modulus N.
       F - A number field such that K/F is a quadratic extension
         and N is stable under the Gal(K/F) action
+      RayClassFilter - optional, passed through to HMFGrossencharsTorsorSet;
+        see its documentation.
     returns:
       The set of characters in chi which are not self-conjugate
-      under the K/F action, up to conjugation. 
+      under the K/F action, up to conjugation.
   }
   require IsFiniteOrder(X) : "Cannot compute conjugate pairs of\
       infinite order Grossencharacters";
   K := X`BaseField;
   require IsSubfield(F, K) : "F is not a subfield of K";
+  N_f, N_oo := Modulus(X);
+  S := HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter);
+  return PruneConjugatePairs(S, K, F, N_f, N_oo);
+end intrinsic;
 
-  S := HMFGrossencharsTorsorSet(X);
+intrinsic PruneConjugatePairs(S::SetEnum, K::Fld, F::Fld, N_f::RngOrdIdl, N_oo::SeqEnum[RngIntElt]) -> SetEnum
+  {
+    input:
+      S - A set of HMFGrossenchar objects, all of modulus (N_f, N_oo) over K
+      K, F - K/F a quadratic extension, N_f stable under the Gal(K/F) action
+    returns:
+      The subset of S consisting of characters which are not self-conjugate
+      under the K/F action, one representative from each conjugate pair.
 
-  // If the order of S is 1 then the ray class group is trivial
-  // and the trivial character is self-conjugate
-  if #S eq 1 then
+    Shared tail of PrunedGrossencharsSet (S built by materializing
+    HeckeCharacterGroup(N_f,N_oo) in full) and the tight per-divisor search
+    in PossibleGrossencharsOfRelQuadExt (S built without ever materializing
+    the full group) -- both need the same conjugate-pairing logic on
+    whatever raw survivor set they arrive at.
+  }
+  require IsSubfield(F, K) : "F is not a subfield of K";
+  H := HeckeCharacterGroup(N_f, N_oo);
+
+  // If H is trivial then the ray class group is trivial and the trivial
+  // character is self-conjugate. Checked against H, not S below, since
+  // #S eq 1 can also happen from filtering down to one survivor.
+  if #H eq 1 then
     return {};
   end if;
 
-  N_f, N_oo := Modulus(X); 
-  H := HeckeCharacterGroup(N_f, N_oo);
   G, mp := RayClassGroup(N_f, N_oo);
   gens := Generators(G);
   idl_gens := [mp(g) : g in gens];
-  lcm_order := LCM([Order(g) : g in gens]); 
+  // ConjugateIdeal(K,F,I) depends only on (K,F,idl_gens), not on chi --
+  // hoisted out of the while loop below rather than recomputed once per
+  // surviving character.
+  conj_idl_gens := [ConjugateIdeal(K, F, I) : I in idl_gens];
+  lcm_order := LCM([Order(g) : g in gens]);
   L := CyclotomicField(lcm_order);
 
   chi_to_evals := AssociativeArray();
   evals_to_chi := AssociativeArray();
 
-  pairs := [];
-
   for chi in S do
-    chi_evals := [StrongCoerce(L, chi(I)) : I in idl_gens]; 
+    chi_evals := [StrongCoerce(L, chi(I)) : I in idl_gens];
     chi_to_evals[chi`RayClassChar] := chi_evals;
     evals_to_chi[chi_evals] := chi;
   end for;
@@ -121,7 +144,7 @@ intrinsic PrunedGrossencharsSet(X::HMFGrossencharsTorsor, F::Fld) -> SetEnum
   while not IsEmpty(chis) do
     chi := Rep(chis);
     chi_evals := chi_to_evals[chi`RayClassChar];
-    conj_chi_evals := [StrongCoerce(L, chi(ConjugateIdeal(K, F, I))) : I in idl_gens];
+    conj_chi_evals := [StrongCoerce(L, chi(J)) : J in conj_idl_gens];
     // include chi in the set of pruned chis if
     // chi isn't self-conjugate
     if chi_evals ne conj_chi_evals then
@@ -189,24 +212,96 @@ intrinsic HeckeCharWeightFromWeight(K::Fld, F::Fld, k::SeqEnum[RngIntElt]) -> Se
   end if;
 end intrinsic;
 
-intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
+intrinsic TightRayClassFilteredGrossencharsSet(X::HMFGrossencharsTorsor, K::Fld, N::RngOrdIdl, RayClassFilter::SeqEnum) -> SetEnum
+  {
+    Fast raw-survivor-set builder for PossibleGrossencharsOfRelQuadExt's
+    finite-order (e.g. weight [1,1]) case: same contract as
+    HMFGrossencharsTorsorSet(X : RayClassFilter:=RayClassFilter) -- genuine
+    HeckeCharacterGroup(Modulus(X))-level HMFGrossenchar objects satisfying
+    every condition in RayClassFilter -- but without ever materializing
+    HeckeCharacterGroup(Modulus(X)) in full, which X`FiniteModulus =
+    (N/Discriminant(Integers(K)))*Integers(X`BaseField) makes wastefully
+    large for the same reason MaximalIdealsOfNormDividingAbs's docstring
+    describes (relative norm squares under pushforward).
+
+    K must be the RELATIVE quadratic extension (not AbsoluteField(K)), so
+    the split/ramified/inert structure needed for tight per-prime divisor
+    bounds is available; X`BaseField must be AbsoluteField(K). N is the
+    original level ideal of the base field F := BaseField(K).
+
+    Searches HeckeCharacterGroup(C,...) for each tight divisor C from
+    MaximalIdealsOfNormDividingAbs, instead of HeckeCharacterGroup(Modulus(X),...)
+    -- empirically ~790x fewer characters to touch in the case that
+    motivated this (see MaximalIdealsOfNormDividingAbs). A survivor found
+    via one C is re-expressed as a HeckeCharacterGroup(Modulus(X),...)
+    element (evaluating it on that group's own generators, then
+    reconstructing via HeckeCharacter) before being wrapped via
+    cHMFGrossenchar, which requires Modulus(psi) eq Modulus(X) exactly.
+    The same primitive character can be found via more than one C (e.g.
+    the trivial character divides every C); deduped by evaluation vector
+    at Modulus(X)'s ray class group generators, which is exactly the
+    invariant that determines the resulting HeckeCharacterGroup(Modulus(X))
+    element regardless of which C it was found through.
+  }
+  F := BaseField(K);
+  rel_disc := Discriminant(Integers(K));
+  M := N / rel_disc;
+  require IsIntegral(M) : "The discriminant of K/F does not divide N";
+
+  ZKabs := Integers(X`BaseField);
+  N_f, N_oo := Modulus(X);
+  GM, mpM := RayClassGroup(N_f, N_oo);
+  // Generators(GM) is a SetEnum, not index-able -- fix a definite order once
+  // so gens_M[i] and vals[i] (built from it below) stay paired correctly.
+  gens_M := [g : g in Generators(GM)];
+  lcm_order := LCM([Order(g) : g in gens_M] cat [1]);
+  L := CyclotomicField(lcm_order);
+
+  survivors := AssociativeArray();
+  for C in MaximalIdealsOfNormDividingAbs(ZKabs, M) do
+    for chi0 in Elements(HeckeCharacterGroup(C, N_oo)) do
+      if not &and[StrongEquality(chi0(tup[1]), tup[2]) : tup in RayClassFilter] then
+        continue;
+      end if;
+      vals := [chi0(mpM(g)) : g in gens_M];
+      key := [StrongCoerce(L, v) : v in vals];
+      if IsDefined(survivors, key) then
+        continue;
+      end if;
+      B := <<mpM(gens_M[i]), vals[i]> : i in [1 .. #gens_M]>;
+      chi_lifted := HeckeCharacter(N_f, N_oo, B);
+      survivors[key] := cHMFGrossenchar(X, chi_lifted);
+    end for;
+  end for;
+  return {survivors[k] : k in Keys(survivors)};
+end intrinsic;
+
+intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi : GRing:=false, AllowImprimitive:=false) -> List
   {
     inputs:
-      K - relative quadratic extension with base field F and 
+      K - relative quadratic extension with base field F and
         discriminant dividing N
-      N - integral ideal of F 
+      N - integral ideal of F
       k_hmf - weight of HMFs induced by the desired grossencharacters
       chi - (finite order) Hecke character of F of modulus N
+      GRing - optional ModFrmHilDGRng; if given, the (chi-independent) set S
+        of candidate Grossencharacters is cached on it, keyed by (N, k_hmf, K)
+      AllowImprimitive - optional boolean
     returns:
       Grossencharacters of weight k and conductor N/Disc_(K/F) whose
-      restriction to AA_F is chi. 
+      restriction to AA_F is chi.
 
       If the weight is parallel, we remove characters which are invariant
       under conjugation (see the ConjugateIdeal intrinsic) and only
-      return one character from each pair of conjugate ideals. 
+      return one character from each pair of conjugate ideals.
 
-      The grossencharacters returned by this function corresponds to distinct CM 
-      modular forms after (automorphic) induction. 
+      The grossencharacters returned by this function corresponds to distinct CM
+      modular forms after (automorphic) induction.
+
+      If AllowImprimitive, we allow the conductor of the Grossencharacter to 
+      strictly divide N/Disc_(K/F). Taking ThetaSeries of the resulting 
+      characters gives not only the new induced subspace but also the 
+      images under the trivial degeneracy map of old induced subspaces. 
   }
   ZK := Integers(K);
   rel_disc := Discriminant(ZK);
@@ -219,20 +314,58 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
   k := HeckeCharWeightFromWeight(K_abs, BaseField(K), k_hmf);
   X := cHMFGrossencharsTorsor(K_abs, k, M);
 
+  GF, mF := RayClassGroup(N, [1 .. Degree(BaseField(K))]);
+
+  // S doesn't depend on chi, only on (N, k_hmf, K) -- computing it is the
+  // expensive step (O(size of the ray class group of K_abs)), so cache it
+  // on GRing when available rather than recomputing per character. In the
+  // finite order case, filtering via RayClassFilter is fast enough on its
+  // own (see PrunedGrossencharsSet/HMFGrossencharsTorsorSet) that it isn't
+  // worth caching S separately per chi, so we skip the GRing cache there.
   if IsFiniteOrder(X) then
     // we define grossencharacters over absolute fields
     // so we need to pass in the base field
     F := BaseField(K);
-    S := PrunedGrossencharsSet(X, F);
+    // Evaluate(cHMFGrossenchar(X,psi), I) reduces to psi(I)^-1 (raw,
+    // native GrpHeckeElt evaluation) when IsFiniteOrder(X), since
+    // MarkedCharClassRepEvals and EvaluateNoncompactInfinityType are both
+    // trivial in that case (see HMFGrossenchar.m). Solving
+    // chi(I)*Norm(I)^(k-1) eq psi(I)^-1*QuadraticCharacter(I,K) for
+    // psi(I) gives the target values below.
+    ray_class_filter := [<Integers(K_abs)!!mF(g),
+        QuadraticCharacter(mF(g), K) * chi(mF(g))^-1 * Norm(mF(g))^-(Max(k_hmf) - 1)>
+        : g in Generators(GF)];
+    raw := TightRayClassFilteredGrossencharsSet(X, K, N, ray_class_filter);
+    N_f, N_oo := Modulus(X);
+    S := PruneConjugatePairs(raw, K_abs, F, N_f, N_oo);
   else
-    S := HMFGrossencharsTorsorSet(X);
+    use_cache := GRing cmpne false;
+    k_key := Sprint(k_hmf);
+    if use_cache and IsDefined(GRing`GrossencharsSetCache, N)
+        and IsDefined(GRing`GrossencharsSetCache[N], k_key)
+        and IsDefined(GRing`GrossencharsSetCache[N][k_key], K) then
+      S := GRing`GrossencharsSetCache[N][k_key][K];
+    else
+      S := HMFGrossencharsTorsorSet(X);
+      if use_cache then
+        if not IsDefined(GRing`GrossencharsSetCache, N) then
+          GRing`GrossencharsSetCache[N] := AssociativeArray();
+        end if;
+        if not IsDefined(GRing`GrossencharsSetCache[N], k_key) then
+          GRing`GrossencharsSetCache[N][k_key] := AssociativeArray();
+        end if;
+        GRing`GrossencharsSetCache[N][k_key][K] := S;
+      end if;
+    end if;
   end if;
 
-  GF, mF := RayClassGroup(N, [1 .. Degree(BaseField(K))]);
   ans := [* *];
   for psi in S do
     N_psi := ZK!!(Conductor(psi));
-    if Norm(N_psi) * rel_disc eq N then
+    valid_level := (not AllowImprimitive) select \
+                 (Norm(N_psi) * rel_disc eq N) else \
+                 (IsIntegral(N / (Norm(N_psi) * rel_disc)));
+    if valid_level then
       flag := true;
       for g in Generators(GF) do
         I := mF(g);
@@ -253,7 +386,14 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
             Evaluate(psi, Integers(K_abs)!!(I) : gen:=gen, nonpar_hack:=nonpar_hack) * QuadraticCharacter(I, K)
             );
       end for;
-      if flag then
+      // S was already filtered by RayClassFilter above in the finite
+      // order case, so this recheck should always agree; keep it as an
+      // assert-based safety net rather than dropping it, since S is now
+      // small this costs nothing.
+      if IsFiniteOrder(X) then
+        assert flag;
+        Append(~ans, psi);
+      elif flag then
         Append(~ans, psi);
       end if;
     end if;
@@ -261,32 +401,99 @@ intrinsic PossibleGrossencharsOfRelQuadExt(K, N, k_hmf, chi) -> List
   return ans;
 end intrinsic;
 
-intrinsic PossibleGrossenchars(Mk::ModFrmHilD) -> List
+intrinsic PossibleGrossenchars(Mk::ModFrmHilD : AllowImprimitive:=false) -> List
   {
     Given a space Mk of HMFs, computes the grossencharacters which induce
     forms in Mk.
 
     The induced forms will span the dihedral forms in Mk if Weight(Mk) is parallel
     and the CM forms otherwise.
+
+    If AllowImprimitive, also returns grossencharacters whose conductor
+    strictly divides Level(Mk); see PossibleGrossencharsOfRelQuadExt.
   }
   ans := [* *];
   N := Level(Mk);
-  Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
+  GRing := Parent(Mk);
+  if IsDefined(GRing`QuadExtWithConductorCache, N) then
+    Ks := GRing`QuadExtWithConductorCache[N];
+  else
+    Ks := QuadraticExtensionsWithConductor(N, [1 .. Degree(BaseField(Mk))]);
+    GRing`QuadExtWithConductorCache[N] := Ks;
+  end if;
 
-  // if k is nonparallel then induced characters can only come from CM extensions
-  if not IsParallel(Weight(Mk)) then
+  if not (IsParallel(Weight(Mk)) and Weight(Mk)[1] eq 1) then
     Ks := [K : K in Ks | IsTotallyComplex(K)];
   end if;
 
   k := Weight(Mk);
   chi := Character(Mk);
   for K in Ks do
-    ans cat:= [* psi : psi in PossibleGrossencharsOfRelQuadExt(K, N, k, chi) *];
+    ans cat:= [* psi : psi in PossibleGrossencharsOfRelQuadExt(K, N, k, chi : GRing := GRing, AllowImprimitive := AllowImprimitive) *];
   end for;
   return ans;
 end intrinsic;
 
 //////////////////////////////// Computing spaces of dihedral forms
+
+intrinsic MaximalIdealsOfNormDividingAbs(ZKabs::RngOrd, Mideal::RngOrdIdl) -> SeqEnum
+  {
+    ZKabs the ring of integers of a quadratic extension K of
+    F := NumberField(Order(Mideal)), realized as an absolute field.
+    Returns a duplicate-free sequence of ideals C of ZKabs, each maximal
+    (under divisibility) among ideals whose relative norm N_KF(C) divides
+    Mideal, such that every ideal D of ZKabs with N_KF(D) | Mideal divides
+    some C in the returned sequence.
+
+    This is a much tighter search bound than the single ideal Mideal*ZKabs:
+    since D | N_KF(D)*ZKabs always, Mideal*ZKabs is a valid but wasteful
+    upper bound whose own relative norm is Mideal^2, not Mideal (e.g. for a
+    case with #HeckeCharacterGroup(Mideal*ZKabs,...) = 115248, the ideals
+    actually produced here have combined character-group size 146, a
+    ~790x reduction).
+
+    Factors each prime p of F directly in the absolute order ZKabs (via
+    ZKabs !! p), rather than in a relative order ZK with the result
+    coerced across afterward. For K whose relative defining polynomial is
+    non-integral, the relative-order route is unreliable: empirically
+    (m=6, N=56/57/80/84/88/90)
+    it can throw "Ideal is fractional" on coercion to ZKabs, or silently
+    return a wrong non-integral ideal (Magma's AbsoluteField exposes no
+    isomorphism to coerce correctly). Factoring in ZKabs directly sidesteps
+    the relative order, and the coercion, entirely.
+  }
+  local_choices := [* *];
+  for pe in Factorization(Mideal) do
+    p := pe[1]; e := pe[2];
+    pK_fact := Factorization(ZKabs !! p);
+    options := [];
+    if #pK_fact eq 1 and pK_fact[1][2] eq 2 then
+      P := pK_fact[1][1];
+      Append(~options, P^e);
+    elif #pK_fact eq 1 and pK_fact[1][2] eq 1 then
+      P := pK_fact[1][1];
+      Append(~options, P^(e div 2));
+    elif #pK_fact eq 2 then
+      P := pK_fact[1][1]; Pp := pK_fact[2][1];
+      for a in [0 .. e] do
+        Append(~options, P^a * Pp^(e-a));
+      end for;
+    end if;
+    Append(~local_choices, options);
+  end for;
+
+  Cs := [1*ZKabs];
+  for opts in local_choices do
+    newCs := [];
+    for c in Cs do
+      for o in opts do
+        Append(~newCs, c*o);
+      end for;
+    end for;
+    Cs := newCs;
+  end for;
+  return Cs;
+end intrinsic;
 
 intrinsic ThetaSeries(Mk::ModFrmHilD, psi::HMFGrossenchar) -> ModFrmHilDElt
   {
@@ -369,7 +576,9 @@ intrinsic ThetaSeries(Mk::ModFrmHilD, psi::HMFGrossenchar) -> ModFrmHilDElt
   end for;
 
   if paritious_weight then
-    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp);
+    nonzero_coeff_vals := [* v : pp -> v in coeffs_by_pp | v ne 0 *];
+    coeff_ring := (#nonzero_coeff_vals eq 0) select Rationals() else Parent(StrongAdd(nonzero_coeff_vals));
+    return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : coeff_ring := coeff_ring);
   else
     return CuspEigenformFromCoeffsAtPrimes(Mk, coeffs_by_pp : 
                                                     from_a_pp:=false,
@@ -421,3 +630,5 @@ intrinsic ProbabilisticDihedralTest(f::ModFrmHilDElt) -> BoolElt
   end for;
   return false;
 end intrinsic;
+
+
