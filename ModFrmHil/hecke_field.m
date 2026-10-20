@@ -23,7 +23,7 @@ import "hecke.m" :
 import "precompute.m" :
   get_rids;
 
-import "indefinite.m" : ElementOfNormMinusOne;
+import !"Geometry/ModFrmHil/indefinite.m" : ElementOfNormMinusOne;
 
 import "hackobj.m" : HMF0;
 
